@@ -1,12 +1,4 @@
-# Proyecto final integrador Android con Jetpack Compose, MVVM, Retrofit 3.0.0, OkHttp 5.5.0, Room 2.8.4, Flows, geolocalización y JetBrains AI Assistant
-
-## Metadatos
-
-| Métrica | Detalle |
-| :--- | :--- |
-| **Duración** | 144 minutos |
-| **Complejidad** | Alta (Hard) |
-| **Nivel de Bloom** | Crear (Create) |
+# Laboratorio Final
 
 ## Descripción General
 
