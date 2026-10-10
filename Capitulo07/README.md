@@ -7085,7 +7085,9 @@ El paso queda terminado cuando se revisan los cambios, se ejecutan las pruebas y
 
 ## Referencias Adicionales
 
+- [Referencias Adicionales](Referencias_SismoExplorer.md)
 
+- [Cálculo de distancia](CalculoDistancia.md)
 
 
 <br/>
