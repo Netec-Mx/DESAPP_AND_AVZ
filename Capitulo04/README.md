@@ -42,7 +42,7 @@ El objetivo es aprender y validar la integración de red en un entorno controlad
 <br/>
 <br/>
 
-## Objetivos de aprendizaje
+## Objetivos
 
 Al finalizar podrás:
 

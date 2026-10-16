@@ -1,4 +1,4 @@
- # Laboratorio 6.1. Geolocalización, mapas y acelerómetro
+# Laboratorio 6.1. Geolocalización, mapas y acelerómetro
 
 <br/><br/>
 
@@ -12,7 +12,7 @@ La pantalla anterior, GET/POST, autenticación, Room y DataStore se conservan. `
 
 <br/><br/>
 
-## Objetivos de aprendizaje
+## Objetivos
 
 Al finalizar, podrás:
 

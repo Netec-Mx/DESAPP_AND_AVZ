@@ -27,7 +27,7 @@ Durante el laboratorio se modificará `MainActivity` para mostrar la nueva panta
 
 <br/><br/>
 
-## Objetivos de Aprendizaje
+## Objetivos
 
 Al finalizar este laboratorio, serás capaz de:
 
@@ -66,7 +66,7 @@ Al finalizar este laboratorio, serás capaz de:
 <br/>
 
 
-## Instrucciones Paso a Paso
+## Instrucciones
 
 El proyecto base de esta práctica se encuentra en el paquete base de la aplicación: `com.example.advancedtracker`. 
 

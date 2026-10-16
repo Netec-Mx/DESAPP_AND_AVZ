@@ -1,4 +1,4 @@
-# Laboratorio 7.1  Referencias adicionales
+# Referencias adicionales
 
 <br/>
 <br/>

@@ -9,7 +9,7 @@ A lo largo del laboratorio, aplicarás conceptos avanzados de Kotlin moderno com
 
 <br/><br/>
 
-## Objetivos de Aprendizaje
+## Objetivos
 
 Al finalizar este laboratorio, serás capaz de:
 - Configurar un proyecto base en Android Studio optimizado para Kotlin, Gradle Kotlin DSL y APIs 31 a 37.
@@ -87,7 +87,7 @@ Continúa hasta el punto 6 y sincroniza el proyecto con Gradle. Si la sincroniza
 
 Nota para adaptar los puntos 4 y 5: tu plantilla usa AGP 9.3.3. Desde AGP 9, Kotlin está integrado, por lo que no debes añadir kotlin-android solo para hacer coincidir el proyecto con el ejemplo de AGP 8.4.0. Conserva las declaraciones de plugins que generó tu plantilla
 
-<br/>
+<br/><br/>
 
 ## Instrucciones 
 

@@ -1,4 +1,4 @@
-# Demo 6.1 — Sensores básicos del dispositivo con Jetpack Compose
+# Demo 6.2 — Sensores básicos del dispositivo con Jetpack Compose
 
 <br/>
 

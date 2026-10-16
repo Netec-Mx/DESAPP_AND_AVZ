@@ -14,7 +14,7 @@ La práctica es incremental: agrega clases y configuraciones, sin sustituir los 
 
 <br/><br/>
 
-## Objetivos de aprendizaje
+## Objetivos
 
 Al finalizar, podrás:
 
@@ -1158,7 +1158,7 @@ El archivo `.preferences_pb` es binario. Database Inspector muestra SQLite/Room,
 
 <br/><br/>
 
-## Paso 14. Implementar y verificar la migración manual de versión 1 a 2
+### Paso 14. Implementar y verificar la migración manual de versión 1 a 2
 
 Realiza este paso **después** de crear versión 1, insertar al menos un registro y guardar sus evidencias. No desinstales la aplicación ni borres sus datos.
 
@@ -1247,9 +1247,9 @@ ORDER BY timestamp DESC, id ASC;
 
 <br/><br/>
 
-## Paso 15. Implementar y verificar la migración automática.
+### Paso 15. Implementar y verificar la migración automática.
 
-### 15.1 Agregar origen técnico de caché
+#### 15.1 Agregar origen técnico de caché
 
 Agrega a la entidad, después de `cachedAt`, la propiedad:
 
@@ -1410,7 +1410,7 @@ ORDER BY timestamp DESC, id ASC;
 
 <br/><br/>
 
-## Paso 16. Agregar y ejecutar las pruebas unitarias e instrumentadas
+### Paso 16. Agregar y ejecutar las pruebas unitarias e instrumentadas
 
 Implementa estas pruebas cuando el código ya esté en versión 3. Las locales verifican lógica y propagación de fallas con dobles de prueba; las instrumentadas verifican Room real y las migraciones.
 
@@ -1900,7 +1900,7 @@ Estos son reportes de resultados de pruebas, no porcentajes de cobertura JaCoCo.
 
 <br/><br/>
 
-## Paso 17. Validar el comportamiento offline y reunir las evidencias
+### Paso 17. Validar el comportamiento offline y reunir las evidencias
 
 1. Validaciones manuales finales
 

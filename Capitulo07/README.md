@@ -27,7 +27,7 @@ El proyecto se construirá de forma incremental visto en el Capítulo 7. Integra
 <br/>
 <br/>
 
-## Objetivos de Aprendizaje
+## Objetivos
 
 Al finalizar este laboratorio, serás capaz de:
  
@@ -642,7 +642,7 @@ internal fun formatearNumero(
 
 - El `when` presenta una rama distinta para cada estado.
 - Las acciones se comunican mediante callbacks.
-- `key = { it.id }` identifica cada evento cuando cambia su posición en la lista. [Jetpack Compose - Android Developers](https://developer.android.com/develop/ui/compose/lists?utm_source=chatgpt.com)
+- `key = { it.id }` identifica cada evento cuando cambia su posición en la lista. [Jetpack Compose - Android Developers](https://developer.android.com/develop/ui/compose/lists)
 - `innerPadding` reserva el espacio de las barras del `Scaffold`.
 - La fecha se muestra en la zona horaria del dispositivo.
 - **Todas** significa todos los eventos disponibles en la lista. En el Paso 3 serán los proporcionados por el feed seleccionado.

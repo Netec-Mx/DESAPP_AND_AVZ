@@ -10,7 +10,7 @@ Diseñarás e implementarás una pantalla de listado dinámico basada en `LazyCo
 
 <br/><br/>
 
-## Objetivos de Aprendizaje
+## Objetivos
 
 Al finalizar este laboratorio, serás capaz de:
 - Configurar y utilizar el sistema de gestión de dependencias de **Jetpack Compose** junto con el compilador integrado de Kotlin.
@@ -35,7 +35,7 @@ Para completar con éxito este laboratorio, requieres:
 <br/>
 <br/>
 
-## Instrucciones Paso a Paso
+## Instrucciones
 
 ### Paso 1: Configurar el entorno de construcción Gradle para Jetpack Compose
 
