@@ -1,77 +1,52 @@
-# Construcción de interfaz declarativa con Jetpack Compose BOM 2026.02.01, Material 3, estado, recomposición, navegación y LazyColumn
+# Laboratorio 2.1 Construcción de interfaz declarativa con Jetpack Compose 
 
-## Metadatos
-
-| Métrica | Detalle |
-| :--- | :--- |
-| **Duración** | 288 minutos |
-| **Complejidad** | Alta (Hard) |
-| **Nivel de Bloom** | Crear (Create) |
-
----
+<br/><br/>
 
 ## Descripción General
 
-En este laboratorio práctico, transformarás por completo la interfaz de usuario del sistema de rastreo de telemetría, sustituyendo el antiguo paradigma imperativo de vistas XML por una arquitectura de UI declarativa moderna. Utilizarás **Jetpack Compose BOM 2026.02.01** y **Material Design 3** para estructurar un flujo de navegación con tipado seguro (*Type-Safe Navigation*). 
+En este laboratorio, transformarás por completo la interfaz de usuario del sistema de rastreo de telemetría, sustituyendo el antiguo paradigma imperativo de vistas XML por una arquitectura de UI declarativa moderna. Utilizarás **Jetpack Compose** y **Material Design** para estructurar un flujo de navegación con tipado seguro (*Type-Safe Navigation*). 
 
 Diseñarás e implementarás una pantalla de listado dinámico basada en `LazyColumn` que renderizará los datos de motores de simulación, aplicando técnicas de *State Hoisting* para separar la lógica de presentación de la renderización visual. Asimismo, construirás una pantalla de detalles interactiva que empleará `remember` y `rememberSaveable` para garantizar la persistencia del estado ante cambios rotacionales y de configuración física del dispositivo.
 
----
+<br/><br/>
 
-## Objetivos de Aprendizaje
+## Objetivos
 
 Al finalizar este laboratorio, serás capaz de:
-- [ ] Configurar y utilizar el sistema de gestión de dependencias de **Jetpack Compose BOM 2026.02.01** junto con el compilador integrado de Kotlin 2.3.10.
-- [ ] Diseñar componentes visuales reactivos utilizando las guías de diseño de **Material Design 3** (`Scaffold`, `Card`, `TopAppBar` y tipografías).
-- [ ] Implementar un flujo de navegación tipado utilizando la biblioteca de **Compose Navigation** sin exponer rutas basadas en cadenas de texto propensas a errores.
-- [ ] Optimizar el rendimiento de listas complejas mediante `LazyColumn` empleando claves únicas (`key`) e índices de optimización de recomposición.
-- [ ] Gestionar el estado mutacional de la interfaz de manera resiliente ante la recreación del ciclo de vida utilizando `rememberSaveable` y savers personalizados.
+- Configurar y utilizar el sistema de gestión de dependencias de **Jetpack Compose** junto con el compilador integrado de Kotlin.
+- Diseñar componentes visuales reactivos utilizando las guías de diseño de **Material Design** (`Scaffold`, `Card`, `TopAppBar` y tipografías).
+- Implementar un flujo de navegación tipado utilizando la biblioteca de **Compose Navigation** sin exponer rutas basadas en cadenas de texto propensas a errores.
+- Optimizar el rendimiento de listas complejas mediante `LazyColumn` empleando claves únicas (`key`) e índices de optimización de recomposición.
+- Gestionar el estado mutacional de la interfaz de manera resiliente ante la recreación del ciclo de vida utilizando `rememberSaveable` y savers personalizados.
 
----
+<br/><br/>
 
 ## Prerrequisitos
 
 Para completar con éxito este laboratorio, requieres:
-1. **Código Base Previo:** Tener completado el proyecto base estructurado de la Práctica 1 (donde se definieron las configuraciones iniciales del SDK de Android 35 y la estructura de paquetes de `com.example.advancedtracker`).
+
+1. **Código Base Previo:** Tener completado el proyecto base estructurado de la Práctica 1 (donde se definieron las configuraciones iniciales del SDK de Android 31 y la estructura de paquetes de `com.example.advancedtracker`).
+
 2. **Acceso a Herramientas:**
-   * **JetBrains AI Assistant (v242.23339):** Requiere una suscripción activa comercial o educativa configurada dentro de Android Studio para asistencia de refactorización y generación de pruebas guiadas.
+   * **JetBrains AI Assistant:** Requiere una suscripción activa comercial o educativa configurada dentro de Android Studio para asistencia de refactorización y generación de pruebas guiadas.
+
 3. **Conexión de Red:** Acceso irrestricto a Internet para la descarga de artefactos desde el repositorio Maven de Google.
 
----
+<br/>
+<br/>
 
-## Entorno de Laboratorio
-
-### Requisitos de Hardware
-
-| Componente | Especificación Mínima | Especificación Recomendada |
-| :--- | :--- | :--- |
-| **Procesador** | Intel Core i7 / AMD Ryzen 7 (11va Gen o Sup.) | Apple Silicon (M1/M2/M3) o Intel/AMD Core i9 |
-| **Memoria RAM** | 16 GB DDR4/DDR5 | 32 GB DDR5 |
-| **Disco Duro** | 40 GB libres en SSD | 80 GB libres en NVMe M.2 SSD |
-| **Dispositivo** | Emulador API 30+ (x86_64) | Dispositivo físico Android con API 35 (USB Debugging) |
-
-### Requisitos de Software y Librerías
-
-| Herramienta / API | Versión de Referencia | Licencia / Rol | Enlace de Descarga / Fuente |
-| :--- | :--- | :--- | :--- |
-| **Android Studio** | Ladybug (2024.2.1 Patch 3) | Propietario (Gratuito) | [Android Studio Downloads](https://developer.android.com/studio) |
-| **JDK** | Eclipse Temurin 17.0.10+7 | GPLv2+CE | [Adoptium Releases](https://adoptium.net/temurin/releases/?version=17) |
-| **Kotlin Compiler** | 2.3.10 | Apache 2.0 | [Kotlin Releases](https://github.com/JetBrains/kotlin/releases) |
-| **Compose BOM** | 2026.02.01 | Apache 2.0 | [Google Maven Repository](https://maven.google.com/) |
-| **Compose Navigation** | 2.8.8 | Apache 2.0 | [Google Maven Repository](https://maven.google.com/) |
-| **Kotlinx Serialization**| 1.7.3 | Apache 2.0 | [Kotlinx Serialization Repo](https://github.com/Kotlin/kotlinx.serialization) |
-
----
-
-## Instrucciones Paso a Paso
+## Instrucciones
 
 ### Paso 1: Configurar el entorno de construcción Gradle para Jetpack Compose
 
-**Objetivo:** Configurar el archivo de construcción a nivel de aplicación para soportar el compilador de Jetpack Compose integrado en Kotlin 2.3.10, deshabilitar la generación de layouts XML antiguos y añadir el ecosistema Jetpack Compose BOM 2026.02.01 de manera centralizada.
+**Objetivo:** Configurar el archivo de construcción a nivel de aplicación para soportar el compilador de Jetpack Compose integrado en Kotlin, deshabilitar la generación de layouts XML antiguos y añadir el ecosistema Jetpack Compose BOM de manera centralizada.
 
 **Instrucciones:**
 
 1. Abre el archivo `build.gradle.kts` de tu módulo principal (usualmente `app/build.gradle.kts`).
+
+<br/>
+
 2. Reemplaza la sección de `plugins` y añade los plugins correspondientes a Kotlin Compose y Kotlinx Serialization para habilitar la navegación tipada:
 
 ```kotlin
@@ -79,9 +54,14 @@ plugins {
     id("com.android.application") version "8.4.0"
     id("org.jetbrains.kotlin.android") version "2.3.10"
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.10"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.10"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.10" 
 }
 ```
+
+**Nota:** 
+<<OJO>> solo me alto serialization
+
+<br/>
 
 3. Modifica la configuración dentro del bloque `android` para especificar el uso de Compose, el nivel del SDK (compileSdk/targetSdk = 35) y la versión de Java:
 
@@ -121,6 +101,8 @@ android {
 }
 ```
 
+<br/>
+
 4. Agrega las dependencias de Compose utilizando el BOM (Bill of Materials) `2026.02.01` y añade las dependencias de navegación y serialización:
 
 ```kotlin
@@ -154,13 +136,17 @@ dependencies {
 }
 ```
 
+<br/>
+
 5. Sincroniza el proyecto seleccionando **Sync Project with Gradle Files**.
 
 **Resultado esperado de compilación:** El proyecto debe compilarse limpiamente sin advertencias de colisión entre la versión del compilador de Compose y Kotlin, debido a que el compilador se autogestiona directamente por el plugin oficial `org.jetbrains.kotlin.plugin.compose` en la versión de Kotlin 2.3.10.
 
 **Verificación:** Ejecuta `./gradlew assembleDebug` en la terminal embebida de Android Studio y asegúrate de recibir un estado `BUILD SUCCESSFUL`.
 
----
+<br/>
+<br/>
+
 
 ### Paso 2: Definir el modelo de datos y la fuente de datos simulada de telemetría
 
@@ -194,6 +180,9 @@ enum class EngineStatus {
     MAINTENANCE
 }
 ```
+
+<br/>
+<br/>
 
 2. Crea la clase repositorio simulada para proveer datos a la interfaz reactiva. Ubícala en `com.example.advancedtracker.data.repository.TelemetryRepository.kt`:
 
@@ -257,15 +246,59 @@ class TelemetryRepository {
 
 **Resultado esperado:** Las clases se compilarán de manera independiente. El repositorio simula de forma efectiva un flujo unidireccional de datos con cálculo de estados críticos sobre la marcha.
 
----
+<br/>
+<br/>
 
 ### Paso 3: Configurar la navegación tipada segura (Type-Safe Navigation)
 
 **Objetivo:** Crear la definición de rutas utilizando la nueva arquitectura declarativa basada en anotaciones `@Serializable` evitando strings de concatenación manuales.
 
+<br/>
+
 **Instrucciones:**
 
-1. Define los objetos de ruta serializables en un archivo denominado `TelemetryScreens.kt` dentro del paquete `com.example.advancedtracker.ui.navigation`:
+1. Configurar Kotlin Serialization
+
+Revisa primero si el proyecto ya incluye estas entradas. Si existen, consérvalas y evita declararlas dos veces.
+
+En `gradle/libs.versions.toml`, dentro de `[plugins]`, agrega el complemento. La referencia `kotlin` debe apuntar a la versión de Kotlin que **ya usa el proyecto**:
+
+```toml
+[plugins]
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+```
+
+<br/>
+
+En el `build.gradle.kts` **de la raíz**:
+
+```kotlin
+plugins {
+    alias(libs.plugins.kotlin.serialization) apply false
+}
+```
+
+<br/>
+
+En `app/build.gradle.kts`, aplica el complemento al módulo que contiene `TelemetryScreens.kt`:
+
+```kotlin
+plugins {
+    alias(libs.plugins.kotlin.serialization)
+}
+```
+
+Agrega cada línea dentro del bloque `plugins` que ya existe; no sustituyas los complementos Android o Kotlin actuales. El módulo también necesita `kotlinx-serialization-core` en sus dependencias, ya sea declarado directamente o disponible a través de las dependencias de Navigation. Si Android Studio marca `Unresolved reference: kotlinx` en el archivo de rutas, revisa esa dependencia y sincroniza Gradle. La prueba usa JUnit 4; si aún no está declarado, agrega en `app/build.gradle.kts`:
+
+```kotlin
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+}
+```
+
+<br/>
+
+2. Define los objetos de ruta serializables en un archivo denominado `TelemetryScreens.kt` dentro del paquete `com.example.advancedtracker.ui.navigation`:
 
 ```kotlin
 package com.example.advancedtracker.ui.navigation
@@ -279,9 +312,62 @@ object EngineListDestination
 data class EngineDetailDestination(val engineId: String)
 ```
 
-**Resultado esperado:** El compilador de Kotlinx Serialization autogenerará las clases auxiliares internas requeridas para deserializar argumentos dinámicos de manera automatizada al cambiar de pantalla.
+**Nota:** `EngineListDestination` representa una pantalla sin argumentos. `EngineDetailDestination` declara un argumento obligatorio de tipo `String`.
 
----
+<br/>
+
+
+3. Crear la prueba de verificación
+
+Crea `app/src/test/java/com/example/advancedtracker/TelemetryScreensTest.kt`:
+
+```kotlin
+package com.example.advancedtracker.ui.navigation
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class TelemetryScreensTest {
+
+    @Test
+    fun lasRutasTienenSerializador() {
+        EngineListDestination.serializer()
+
+        val descriptor = EngineDetailDestination.serializer().descriptor
+        assertEquals(1, descriptor.elementsCount)
+        assertEquals("engineId", descriptor.getElementName(0))
+
+        // Si falta el complemento de serialización, estas llamadas no compilarán.
+        val listDescriptor = EngineListDestination.serializer().descriptor
+        val detailDescriptor = EngineDetailDestination.serializer().descriptor
+
+        // La lista no requiere argumentos; el detalle recibe engineId.
+        assertEquals(0, listDescriptor.elementsCount)
+        assertEquals(1, detailDescriptor.elementsCount)
+        assertEquals("engineId", detailDescriptor.getElementName(0))
+    }
+}
+```
+
+Ejecuta la prueba con el icono **Run** junto a `lasRutasTienenSerializador` o, desde la terminal del proyecto en Windows:
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest --tests "com.example.advancedtracker.ui.navigation.TelemetryScreensTest"
+```
+
+Si el módulo tiene variantes de producto, el nombre de la tarea puede diferir. También puedes usar **Build > Make Project** para verificar que se generen los serializadores, aunque eso no ejecuta las afirmaciones de la prueba.
+
+**Resultado esperado**
+
+El compilador de Kotlinx Serialization autogenerará las clases auxiliares internas requeridas para deserializar argumentos dinámicos de manera automatizada al cambiar de pantalla.
+
+La prueba termina correctamente. El compilador permite llamar a `serializer()` en ambas rutas; el descriptor de `EngineDetailDestination` reconoce exactamente un argumento llamado `engineId`.
+
+> **Alcance de esta comprobación:** `@Serializable` y el complemento de Kotlin generan serializadores, no pantallas ni código de navegación por sí solos. Cuando se configure `NavHost`, se podrá comprobar la navegación con `composable<EngineDetailDestination>`, `navController.navigate(EngineDetailDestination(id))` y `backStackEntry.toRoute<EngineDetailDestination>()`.
+
+
+
+<br/>
+<br/>
 
 ### Paso 4: Construir la pantalla de listado (ListScreen) con LazyColumn y Material 3
 
@@ -473,7 +559,10 @@ fun StatusBadge(status: EngineStatus) {
 
 **Resultado esperado:** La lista se renderizará eficientemente utilizando `remember` para recalcular los filtros únicamente cuando la entrada de texto cambie o la lista base de motores sufra una actualización asíncrona.
 
----
+**Verificación:** En este punto solo verifica que no tengas errores de compilación.
+
+<br/>
+<br/>
 
 ### Paso 5: Diseñar la pantalla de detalle (DetailScreen) con estados mutables resilientes
 
@@ -637,7 +726,12 @@ fun EngineDetailScreen(
 
 **Resultado esperado:** El formulario acepta entradas dinámicas del operador y realiza la simulación local de cambios de estado críticos de riesgo de fallo. Ante cambios de orientación de pantalla, el estado sin guardar persistirá en la memoria de restauración.
 
----
+<br/>
+
+**Verificación:** En este punto solo tienes que varificar no tienes errores de compilación.
+
+<br/>
+<br/>
 
 ### Paso 6: Unificar la navegación mediante NavHost en MainActivity
 
@@ -730,31 +824,41 @@ class MainActivity : ComponentActivity() {
     }
 }
 ```
+<br/>
 
 2. Remueve completamente cualquier archivo XML relacionado con la UI antigua de la carpeta `res/layout` si existía.
 
 **Resultado esperado:** Al lanzar la aplicación, se inicia directamente el árbol de composición sin inflar vistas tradicionales. Al pulsar un motor del listado, la navegación con tipado seguro intercepta el ID, abre la pantalla detallada y actualiza el repositorio global de forma síncrona tras la confirmación de la consola de modulación.
 
----
+<br/>
 
 ## Validación y Pruebas
 
-Para garantizar que el laboratorio se ha completado siguiendo las directrices del curso y con una calidad técnica excelente, se definen los siguientes mecanismos de validación.
+Para garantizar que el laboratorio se ha completado siguiendo las directrices del curso, se definen los siguientes mecanismos de validación.
+
+<br/>
 
 ### Caso de Prueba Adversario: Prueba de Resiliencia de Estado ante Rotación
 
 Este escenario valida que el estado de edición temporal (no guardado) introducido en los formularios no sea destruido por la reconstrucción de la actividad, demostrando la diferencia entre `remember` y `rememberSaveable`.
 
+<br/>
+
 #### Instrucciones de Ejecución:
-1. Inicie el emulador o conecte un dispositivo físico compatible con API 30+.
+1. Inicie el emulador o conecte un dispositivo físico compatible con API 31+.
 2. Seleccione el motor **"Core Thruster Alpha"** de la lista principal.
 3. Modifique la temperatura a un valor inestable (por ejemplo: `109.8`). No pulse el botón "Actualizar Consola".
 4. Utilizando los controles de desarrollo o físicos, **rote la orientación del dispositivo** (de Portrait a Landscape).
 5. Inspeccione visualmente el campo de texto de Temperatura.
 
+<br/>
+
 #### Comportamiento Esperado (Criterio de Aceptación):
 * **Correcto:** El cuadro de texto sigue conservando el valor manual de `109.8` debido a que `rememberSaveable` retiene la referencia en el Bundle de restauración.
+
 * **Fallo Crítico:** El valor regresa automáticamente al valor de lectura inicial `78.5` (lo que indica que se utilizó `remember` en lugar de `rememberSaveable` perdiéndose la entrada del operador).
+
+<br/>
 
 ### Matriz de Criterios de Evaluación y Pruebas Métricas
 
@@ -765,13 +869,21 @@ Este escenario valida que el estado de edición temporal (no guardado) introduci
 | **VAL-003** | Buscador Dinámico | Filtro de entrada "TX" o "TX-900V". | Recomputación mediante la cláusula `remember(engines, searchQuery)`. | El árbol reduce el listado instantáneamente mostrando únicamente el motor correspondiente. |
 | **VAL-004** | Modificación Reactiva | Guardado de métricas térmicas > 105.0°C. | Recomposición inteligente en la lista tras popBackStack. | El Badge del motor cambia de estado visual "ACTIVE" a "CRITICAL" con color rojo. |
 
----
+<br/>
+<br/>
 
 ## Solución de Problemas
 
 ### Problema 1: Error de compilación por falta de un plugin de serialización compatible con Kotlin 2.3.10
+
 * **Síntoma:** El compilador de Kotlin arroja un error en tiempo de construcción: `Serializer class EngineDetailDestination is not defined or compiler plugin is missing`.
+
+<br/>
+
 * **Causa:** El plugin de serialización `org.jetbrains.kotlin.plugin.serialization` no está declarado en el bloque `plugins` de tu archivo Gradle a nivel de módulo, o su versión no está alineada con el compilador de Kotlin principal (2.3.10).
+
+<br/>
+
 * **Solución:** Asegúrate de declarar el plugin con la misma versión de Kotlin en tu archivo `app/build.gradle.kts`:
   ```kotlin
   plugins {
@@ -783,10 +895,21 @@ Este escenario valida que el estado de edición temporal (no guardado) introduci
   ```
   Luego, ejecuta una limpieza profunda del proyecto desde la terminal de Android Studio ejecutando `./gradlew clean` para forzar la regeneración de los serializadores.
 
+<br/>
+<br/>
+
 ### Problema 2: Error en tiempo de ejecución (Crash) al navegar utilizando Navigation Compose
-* **Síntoma:** La aplicación se cierra de manera repentina cuando intentas navegar desde el listado a la pantalla de detalle, mostrando un error de tipo `java.lang.IllegalArgumentException: Cannot serialize class EngineDetailDestination`.
+* **Síntoma:** La aplicación se cierra de manera repentina cuando intentas navegar desde el listado a la pantalla de detalle, mostrando 
+un error de tipo `java.lang.IllegalArgumentException: Cannot serialize class EngineDetailDestination`.
+
+<br/>
+
 * **Causa:** Te has saltado la anotación `@Serializable` en la declaración de las clases de destino dentro de `TelemetryScreens.kt` o estás importando una clase incorrecta de serialización que no pertenece al ecosistema de Kotlinx.
+
+<br/>
+
 * **Solución:** Abre el archivo `TelemetryScreens.kt` y verifica minuciosamente que tengas importada exactamente la anotación `kotlinx.serialization.Serializable`. Debe lucir de la siguiente manera:
+
   ```kotlin
   import kotlinx.serialization.Serializable
 
@@ -795,7 +918,8 @@ Este escenario valida que el estado de edición temporal (no guardado) introduci
   ```
   Evita usar otras anotaciones de serialización heredadas (como Gson, Jackson o Moshi) para gestionar rutas tipadas en Compose Navigation.
 
----
+<br/>
+<br/>
 
 ## Limpieza
 
@@ -805,24 +929,65 @@ Para liberar almacenamiento local de dependencias residuales e impedir conflicto
 ```bash
 ./gradlew clean
 ```
+
+<br/>
+
 2. Elimina los directorios de construcción locales autogenerados en tu estructura física:
 ```bash
 rm -rf .gradle build/ app/build/
 ```
+
+<br/>
+
 3. Realiza un **Invalidate Caches / Restart** desde la barra superior de menús de Android Studio (`File -> Invalidate Caches...`) para eliminar índices corruptos o desactualizados.
 
----
+<br/>
+
+**Observaciones:**
+
+| Paso | Qué limpia | Cuándo tiene sentido |
+|---|---|---|
+| `gradlew clean` | Resultados de compilación, como `build/` y `app/build/` | Si sospechas que se está ejecutando una compilación anterior. |
+| Borrar `.gradle` y los directorios `build` | También elimina el estado local de Gradle del proyecto | Si `clean` no resolvió un problema de compilación o sincronización. |
+| **Invalidate Caches / Restart** | Índices y cachés del IDE | Si Android Studio muestra errores que no corresponden con la compilación o falla al analizar el proyecto. |
+
+<br/>
+Gradle ya elimina los directorios de resultados mediante clean, así que borrarlos inmediatamente después suele ser redundante. Borrar .gradle obliga a reconstruir estado local y puede hacer más lenta la siguiente compilación; invalidar cachés también provoca un nuevo análisis del IDE
+
+<br/>
+<br/>
 
 ## Resumen
 
 En este laboratorio avanzado has logrado una evolución sustancial de arquitectura de UI:
 
 * **Eliminación del XML:** Remplazaste la herencia pesada del sistema de vistas XML clásico por una interfaz ligera declarativa de Kotlin a través de funciones con anotaciones `@Composable`.
-* **Material Design 3:** Implementaste un sistema robusto de tarjetas interactivas e indicadores de progreso alineados a los lineamientos modernos de Material Design.
+
+<br/>
+
+* **Material Design:** Implementaste un sistema robusto de tarjetas interactivas e indicadores de progreso alineados a los lineamientos modernos de Material Design.
+
+<br/>
+
 * **Navegación con Tipado Seguro:** Configuraste rutas tipadas que eliminan los riesgos de paso de datos entre pantallas, usando la serialización oficial de Jetpack Navigation.
+
+<br/>
+
 * **Resiliencia de Estados:** Integraste con éxito `remember` para mejorar las búsquedas reactivas en memoria y `rememberSaveable` para evitar pérdidas involuntarias de datos ingresados por el operador del motor de simulación.
 
-### Recursos Oficiales para Lectura Adicional
-* [Jetpack Compose BOM - Versiones y Fechas de Lanzamiento](https://developer.android.com/develop/ui/compose/bom)
-* [Navegación seguras con tipado en Jetpack Compose](https://developer.android.com/guide/navigation/design/type-safety?hl=es-419)
-* [Gestión de estados en Jetpack Compose](https://developer.android.com/develop/ui/compose/state?hl=es-419)
+<br/>
+<br/>
+
+### Recursos oficiales para lectura adicional
+
+- [Jetpack Compose BOM: versiones y fechas de lanzamiento](https://developer.android.com/develop/ui/compose/bom). Explica cómo gestionar las versiones de las bibliotecas de Compose.
+
+- [Navegación segura con tipado en Jetpack Compose](https://developer.android.com/guide/navigation/design/type-safety?hl=es-419). Muestra cómo definir destinos y pasar argumentos mediante rutas tipadas.
+
+- [Gestión de estados en Jetpack Compose](https://developer.android.com/develop/ui/compose/state?hl=es-419). Explica cómo declarar y actualizar el estado de la interfaz.
+
+- [Navegación en Android](https://developer.android.com/guide/navigation). Presenta `NavHost`, `NavController`, destinos y rutas.
+
+**Para una práctica posterior:**
+
+- [Cómo guardar el estado de la IU en Compose](https://developer.android.com/develop/ui/compose/state-saving?hl=es-419). Explica cómo conservar el estado cuando se recrea la pantalla, por ejemplo, al rotar el dispositivo.

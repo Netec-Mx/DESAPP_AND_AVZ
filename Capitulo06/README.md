@@ -1,1009 +1,1601 @@
-# Integración de geolocalización con Google Play Services Location 21.4.0, permisos sensibles, mapas y sensores en Android API 30–37
+# Laboratorio 6.1. Geolocalización, mapas y acelerómetro
 
-## Metadatos
+<br/><br/>
 
-| Dimensión | Detalle |
-| :--- | :--- |
-| **Duración** | 144 minutos |
-| **Complejidad** | Media |
-| **Nivel de Bloom** | Aplicar (Apply) |
+## Descripción general
 
----
+Continúa sobre **TelemetryTracker** después de completar el laboratorio 5.1, incluidos los pasos 15 y 16. La base Room está en **versión 3**, con las migraciones y sus pruebas implementadas. Agrega una pantalla de geolocalización a la variante `debug`: solicita permisos, consume ubicación con Google Play Services, dibuja una trayectoria en Google Maps Compose y permite centrar la cámara mediante un botón o un gesto de agitación.
 
-## Descripción General
+**Alcance:** captura con la actividad visible, trayectoria en memoria, distancia aproximada y pruebas unitarias. La captura se detiene al enviar la actividad a segundo plano, bloquear el dispositivo, abrir otra actividad o rotar. No se implementan seguimiento en segundo plano, un servicio foreground, sincronización ni guardado de puntos GPS en Room.
 
-En este laboratorio práctico, implementarás una arquitectura de telemetría y geolocalización en tiempo real para dispositivos móviles que ejecutan desde Android 11 (API 30) hasta Android 15/16 (API 35–37). Construirás un sistema reactivo y resiliente utilizando **Jetpack Compose**, **Google Play Services Location 21.4.0**, **Google Maps Compose 4.3.3** y el **SensorManager** del sistema operativo. 
+La pantalla anterior, GET/POST, autenticación, Room y DataStore se conservan. `MainActivity`, `TrackerApplication`, el manifiesto principal y el modelo `domain.model.tracking.TelemetryData` no se sustituyen.
 
-El flujo de trabajo cubre la declaración técnica de permisos de ubicación en primer y segundo plano, la solicitud dinámica de los mismos mediante contratos nativos de Compose (`ActivityResultContracts`), la visualización de trayectorias en un mapa interactivo y la integración física del acelerómetro del hardware móvil para centrar automáticamente la visualización mediante un gesto físico de agitación (*shake gesture*).
+<br/><br/>
 
----
+## Objetivos
 
-## Objetivos de Aprendizaje
+Al finalizar, podrás:
 
-Al finalizar este laboratorio, serás capaz de:
-- [ ] **Implementar** el flujo moderno de solicitud de permisos sensibles en tiempo de ejecución (`ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` y `ACCESS_BACKGROUND_LOCATION`) adaptado rigurosamente a las restricciones de API 30 a 37.
-- [ ] **Configurar e integrar** `FusedLocationProviderClient` para capturar actualizaciones de ubicación periódicas de alta precisión balanceando el consumo energético del hardware.
-- [ ] **Renderizar** mapas interactivos con trayectorias dinámicas (`Polyline`) en Jetpack Compose consumiendo flujos de datos asíncronos fríos (`Flow`) y calientes (`StateFlow`).
-- [ ] **Conectar** el hardware del acelerómetro mediante `SensorEventListener` encapsulando la telemetría en corrutinas para procesar interacciones físicas directas sobre la vista del mapa.
+- Solicitar permisos de ubicación precisa y aproximada, explicar su propósito y reevaluarlos al regresar de Ajustes.
+- Convertir callbacks de ubicación y acelerómetro a flujos cancelables, liberando los listeners correspondientes.
+- Aplicar contratos y casos de uso de dominio, Hilt y un ViewModel con estado observable y eventos de cámara.
+- Dibujar una ruta en Compose y calcular su distancia aproximada sin sustituir el modelo ni el almacenamiento anteriores.
+- Probar validación de datos, inicio, cancelación, reinicio y recentrado mediante dobles de prueba.
 
----
+<br/><br/>
 
 ## Prerrequisitos
 
-Para completar este laboratorio con éxito, requieres:
-1. **Conocimientos Técnicos Previos**:
-   - Arquitectura limpia en Android (Clean Architecture / patrón MVVM).
-   - Manejo de asincronía reactiva con Kotlin Coroutines, `StateFlow` y `SharedFlow`.
-   - Gestión básica del ciclo de vida en Jetpack Compose (`remember`, `LaunchedEffect`, `DisposableEffect`).
-2. **Cuentas y Accesos**:
-   - Una cuenta activa en **Google Cloud Console** para la generación de credenciales y habilitación de la SDK de *Maps SDK for Android*.
-   - Conexión a Internet sin restricciones de proxy para la descarga de dependencias Maven de Google.
+- Laboratorio 5.1 completado hasta el paso 16: migración manual 1 → 2, migración automática 2 → 3 y pruebas unitarias e instrumentadas implementadas y verificadas.
+- Base Room instalada en versión 3, con los datos conservados y las columnas técnicas `cached_at` y `cache_source`.
+- Esquemas `1.json`, `2.json` y `3.json` conservados y disponibles para las pruebas instrumentadas de migración.
+- Proyecto compilando, Hilt configurado y pantallas de telemetría, red y persistencia operativas.
+- Android Studio y emulador o dispositivo con API 31 o superior y Google Play Services.
+- Cuenta de Google Cloud y permiso para configurar Maps SDK for Android.
+- PowerShell/CMD en Windows, ubicado en la raíz de TelemetryTracker.
 
----
+<br/><br/>
 
-## Entorno de Laboratorio
+## Configuración que se conserva
 
-### Requisitos de Hardware Mínimos y Recomendados
+| Elemento | Configuración |
+|---|---|
+| AGP | 9.3.3 |
+| Gradle wrapper | 9.5.0 |
+| Plugin Kotlin Compose y serialización | 2.2.10 |
+| Compose BOM | 2026.02.01 |
+| compileSdk / targetSdk | 37 / 37 |
+| minSdk | **31** |
+| Bytecode Java | 11 |
+| Hilt / KSP | 2.60.1 / 2.3.6 |
+| Room / DataStore | 2.8.4 / 1.1.2 |
+| Base Room | Clase de base definida en 5.1, versión **3** |
+| Archivo de base | `telemetry_lab51_tracking_db` |
+| Esquemas Room | `1.json`, `2.json` y `3.json` bajo el directorio de la misma clase de base |
 
-| Componente | Requisito Mínimo | Requisito Recomendado |
-| :--- | :--- | :--- |
-| **Procesador** | Intel Core i7 o AMD Ryzen 7 (11va Gen) | Apple Silicon (M1/M2/M3) o Ryzen 9 / Core i9 |
-| **Memoria RAM** | 16 GB DDR4 | 32 GB DDR5 (para IDE + Emulador simultáneos) |
-| **Almacenamiento**| SSD con 40 GB de espacio libre | NVMe M.2 con 80 GB de espacio libre dedicado |
-| **Dispositivo Físico**| N/A (Emulador con Google Play Services) | Dispositivo Android Físico con API 30+ y giroscopio/acelerómetro |
+La versión 3 de Room contiene los seis campos de telemetría y los metadatos locales `cached_at` y `cache_source`. Conserva la migración manual `MIGRATION_1_2`, la migración automática 2 → 3 y la configuración de exportación y assets de esquemas establecidas en 5.1.
 
-### Matriz de Software y Herramientas Requeridas
+<br/><br/>
 
-| Software / Dependencia | Versión Exacta | Arquitectura / Canal | Licencia | URL de Descarga Oficial |
-| :--- | :--- | :--- | :--- | :--- |
-| **Android Studio** | Ladybug (2024.2.1 Patch 3) | x86_64 / ARM64 | Freeware (JetBrains / Google) | [Android Studio Downloads](https://developer.android.com/studio) |
-| **Eclipse Temurin JDK** | 17.0.10+7 | x64 / AArch64 | GPLv2 with Classpath Exception | [Adoptium Temurin](https://adoptium.net/temurin/releases/) |
-| **Kotlin Compiler** | 2.3.10 | Native | Apache License 2.0 | [Kotlin Releases](https://github.com/JetBrains/kotlin/releases) |
-| **Google Play Services Location** | 21.4.0 | Android Library | Propietaria de Google | [Google Maven Repository](https://maven.google.com/web/index.html) |
-| **Google Maps Compose** | 4.3.3 | Compose Extension | Apache License 2.0 | [Google Maps Compose GitHub](https://github.com/googlemaps/android-maps-compose) |
-| **JetBrains AI Assistant** | 242.23339 | IDE Plugin | Comercial / Suscripción | [JetBrains AI](https://www.jetbrains.com/ai/) |
+**En 6.1 no se necesita otra migración:** el esquema, el nombre de la clase de base, el archivo `telemetry_lab51_tracking_db`, la entidad, el DAO, los mappers y los módulos de persistencia permanecen como quedaron al finalizar 5.1. El módulo de geolocalización no crea otra instancia de Room ni escribe puntos en la base.
 
-### Configuración Global del Entorno Gradle
+Conserva `PersistenceLabActivity` en la ubicación donde ya funciona y su registro en el manifiesto `debug`. La nueva `GeolocationLabActivity` se crea en `src/debug/java`.
 
-Asegúrate de que tu proyecto herede las siguientes variables globales en su archivo de configuración:
+Conserva el JDK que ya utiliza Android Studio para ejecutar Gradle. No lo cambies por el hecho de que el bytecode de la aplicación sea Java 11.
 
-* **Paquete de Aplicación Base**: `com.example.advancedtracker`
-* **Compilación del SDK**: `compileSdk = 35`
-* **SDK Mínimo**: `minSdk = 30`
-* **SDK Objetivo**: `targetSdk = 35`
-* **Destino de Máquina Virtual**: `JVM Target = 17`
+<br/><br/>
 
----
+## Archivos que se incorporan
 
-## Instrucciones Paso a Paso
+Crea los archivos nuevos siguiendo las rutas y los bloques completos de esta guía. Integra las adiciones en las configuraciones existentes:
 
-### Paso 1: Configurar Dependencias, Manifiesto y API Key de Google Maps
+| Archivo existente | Adición de 6.1 |
+|---|---|
+| `gradle/libs.versions.toml` | Dos versiones y dos aliases nuevos |
+| `app/build.gradle.kts` | Dos dependencias nuevas |
+| `app/src/debug/AndroidManifest.xml` | Permisos de ubicación, API key, acelerómetro opcional y actividad de geolocalización |
 
-**Objetivo**: Establecer los cimientos del proyecto configurando de manera correcta el archivo de dependencias de Gradle, declarando los permisos granulares y configurando de forma segura la API Key de Google Maps en el Manifiesto de Android.
+Conserva el resto de cada archivo, especialmente el plugin Room, `room { schemaDirectory(...) }`, la configuración de assets de pruebas instrumentadas y las dependencias de `room-testing`. No sustituyas el archivo completo de Gradle ni el manifiesto para añadir esta funcionalidad.
 
-#### Instrucciones
+La credencial del mapa utiliza un marcador de posición que debes configurar localmente.
 
-1. Abre tu archivo `build.gradle.kts` (Módulo: `app`) e inserta dentro del bloque `dependencies` las librerías necesarias. Garantiza que no existan colisiones de versiones utilizando las constantes requeridas:
+<br/><br/>
 
-```kotlin
-// build.gradle.kts (Módulo :app)
-plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.compose.compiler)
-}
+## Instruccioens
 
-android {
-    namespace = "com.example.advancedtracker"
-    compileSdk = 35
+### Paso 1. Verificar y respaldar la línea base
 
-    defaultConfig {
-        applicationId = "com.example.advancedtracker"
-        minSdk = 30
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+El punto de partida es el estado final funcional del Laboratorio 5.1. Guarda un respaldo o commit que incluya la versión 3 de Room, las migraciones, los tres esquemas y las pruebas.
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
-    }
+Desde la raíz de TelemetryTracker, en CMD:
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-    buildFeatures {
-        compose = true
-    }
-}
-
-dependencies {
-    // Core Android y Compose BOM
-    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.activity:activity-compose:1.10.0")
-    
-    // Google Play Services - Ubicación
-    implementation("com.google.android.gms:play-services-location:21.4.0")
-    
-    // Google Maps para Jetpack Compose
-    implementation("com.google.maps.android:maps-compose:4.3.3")
-    
-    // Coroutines & Lifecycle
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    
-    // Testing
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2026.02.01"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-}
+```cmd
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest
 ```
 
-2. Configura tu API Key en la Consola de Google Cloud. Dirígete a [Google Cloud Console](https://console.cloud.google.com/), habilita **Maps SDK for Android** y genera una credencial de tipo *API Key*.
+Ejecuta la aplicación y comprueba su funcionalidad. Abre también la actividad de persistencia:
 
-3. Modifica tu archivo `AndroidManifest.xml` (ubicado en `app/src/main/AndroidManifest.xml`) agregando la declaración obligatoria de los permisos de geolocalización avanzada, segundo plano y telemetría de red, junto a los metadatos de la API Key:
+```cmd
+.\gradlew.bat :app:installDebug
+
+adb shell am start -n com.example.advancedtracker/com.example.advancedtracker.ui.persistence.PersistenceLabActivity
+```
+
+En la pantalla de persistencia, activa **Solo local** para realizar la comparación sin que una nueva consulta HTTP actualice la caché. Abre Database Inspector y ejecuta:
+
+```sql
+PRAGMA user_version;
+
+SELECT id, latitude, longitude, speed_kmh, timestamp, is_mocked,
+       cached_at, cache_source
+FROM telemetry_table
+ORDER BY timestamp DESC, id ASC;
+```
+
+<br/>
+
+**Resultado esperado:** `user_version = 3`, registros disponibles y las dos columnas técnicas presentes. Guarda una captura o exportación para compararla al terminar 6.1. Los registros migrados pueden conservar `cached_at = 0`; no tienen que recibir una nueva fecha únicamente por abrir la pantalla.
+
+Comprueba que los tres JSON de esquema continúan bajo el directorio correspondiente a tu clase de base y conserva los resultados satisfactorios de las pruebas del paso 16 de 5.1. Si falla esta línea base, resuelve ese problema antes de incorporar geolocalización.
+
+<br/><br/>
+
+## Paso 2. Agregar únicamente las dependencias faltantes
+
+En `gradle/libs.versions.toml`, añade a la sección `[versions]` existente:
+
+```toml
+# Cap06
+playServicesLocation = "21.4.0"
+mapsCompose = "4.3.3"
+```
+
+Añade a `[libraries]`, sin repetir el encabezado:
+
+```toml
+play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
+```
+
+En el bloque `dependencies` existente de `app/build.gradle.kts`:
+
+```kotlin
+// Cap06
+implementation(libs.play.services.location)
+implementation(libs.maps.compose)
+```
+
+Las versiones siguientes se fijan para las dos bibliotecas nuevas de esta práctica. Conserva las versiones funcionales del resto de las dependencias. Maps Compose aporta sus dependencias de mapas de manera transitiva; no agregues además otra versión de `play-services-maps`.
+
+No añadas plugins Kotlin Android, otros procesadores, Hilt ni una segunda BOM. El proyecto ya contiene Lifecycle Compose, corrutinas, JUnit y kotlinx-coroutines-test. No agregues duplicados para ejecutar estas pruebas.
+
+Ejecuta **Sync Project with Gradle Files** y revisa las versiones efectivamente resueltas:
+
+```powershell
+.\gradlew.bat :app:dependencies --configuration debugRuntimeClasspath |
+    Select-String -Pattern "play-services-location|maps-compose|play-services-maps"
+```
+
+**Verificación:** aliases resueltos, sin cambios de SDK ni de Java y sin reemplazar las dependencias anteriores.
+
+<br/><br/>
+
+
+### Paso 3. Preparar Google Maps
+
+1. Usa un proyecto de Google Cloud con facturación habilitada y activa **Maps SDK for Android**.
+
+2. Crea una API key para ese servicio.
+
+3. Obtén el SHA-1 del certificado de depuración utilizado por tu instalación:
+
+```cmd
+.\gradlew.bat :app:signingReport
+```
+
+4. Restringe la credencial a la aplicación Android `com.example.advancedtracker` y al SHA-1 de `debug`. Restringe también su uso a Maps SDK for Android. En equipos distintos puede variar el certificado de depuración.
+
+5. Crea el recurso siguiente y reemplaza el marcador por tu credencial local. No deshabilites restricciones para resolver un mapa gris: verifica paquete, firma y API habilitada.
+
+Archivo: `app/src/debug/res/values/maps_api_key.xml`.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.advancedtracker">
-
-    <!-- Permisos de Ubicación requeridos -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    
-    <!-- Permiso requerido para rastreo en background si el usuario lo decide (Android 10+) -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    
-    <!-- Permisos de red e Internet para cargar el mapa -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="Advanced Telemetry Tracker"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
-        
-        <!-- Credenciales de Google Maps API -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="REPLACE_WITH_YOUR_API_KEY" />
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Material3.DayNight.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
+<resources>
+    <!-- Sustituye el valor localmente antes de ejecutar el mapa. No contiene una credencial real. -->
+    <string name="maps_api_key" translatable="false">REPLACE_WITH_YOUR_API_KEY</string>
+</resources>
 ```
 
-#### Resultado Esperado
-El proyecto debe sincronizar con Gradle sin emitir errores de dependencias en conflicto. El compilador de Kotlin resolverá todas las dependencias asociadas a la versión Compose BOM `2026.02.01` utilizando la versión del compilador Kotlin `2.3.10`.
+La clave incluida en un APK no se vuelve secreta por colocarla en un recurso. Las restricciones de aplicación y API son parte de su configuración. El ejemplo utiliza un marcador de posición, no una credencial real.
 
-#### Verificación
-Ejecuta la tarea de verificación de Gradle desde la terminal embebida de Android Studio para constatar que el árbol de dependencias es consistente:
-```bash
-./gradlew app:dependencies --configuration releaseRuntimeClasspath | grep -E "play-services-location|maps-compose"
-```
-Debes visualizar de salida las versiones exactas (`21.4.0` y `4.3.3`) acopladas correctamente al árbol.
+<br/><br/>
 
----
 
-### Paso 2: Diseñar la Capa de Datos y el Sensor de Movimiento (Acelerómetro)
+### Paso 4. Crear los contratos y la lógica de dominio
 
-**Objetivo**: Crear un flujo reactivo infinito (`callbackFlow`) que registre y filtre los eventos físicos del hardware acelerómetro para detectar un movimiento físico de agitación (*shake gesture*) del dispositivo móvil, aislando la lógica de sensores dentro del ciclo de vida del framework de Android.
+Cada archivo siguiente vive bajo `app/src/main/java`. El dominio no importa Android, Google Maps, Room, Retrofit ni Hilt. `LocationSample` representa una lectura temporal del proveedor; no reemplaza `TelemetryData`, no incorpora un nuevo DTO de red y no modifica los seis campos de telemetría del dominio ni las columnas técnicas `cached_at` y `cache_source` de Room.
 
-#### Instrucciones
+La precisión reportada se mantiene como metadato de la lectura. Por defecto no se aplica un límite de 40 metros: eso descartaría muchas ubicaciones aproximadas válidas. Un límite explícito se demuestra únicamente en las pruebas de política.
 
-1. Crea el paquete `com.example.advancedtracker.data.sensor`.
-2. Implementa la clase `ShakeDetector` que encapsulará el comportamiento físico utilizando el acelerómetro nativo mediante `SensorManager`. Usaremos Kotlin Coroutines con un flujo `Flow<Unit>` frío para procesar los eventos en tiempo real:
+Archivo: `app/src/main/java/com/example/advancedtracker/domain/geolocation/GeoModels.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/data/sensor/ShakeDetector.kt
-package com.example.advancedtracker.data.sensor
+package com.example.advancedtracker.domain.geolocation
+
+data class GeoCoordinate(val latitude: Double, val longitude: Double)
+
+/** Lectura del proveedor de ubicación; no sustituye TelemetryData ni el DTO de red. */
+data class LocationSample(
+    val coordinate: GeoCoordinate,
+    val timestampMs: Long,
+    val speedKmh: Double,
+    val accuracyMeters: Double?,
+    val isMocked: Boolean
+)
+
+data class RouteSnapshot(
+    val points: List<GeoCoordinate> = emptyList(),
+    val lastSample: LocationSample? = null,
+    val firstTimestampMs: Long? = null,
+    val distanceMeters: Double = 0.0,
+    val acceptedCount: Int = 0,
+    val rejectedCount: Int = 0
+)
+```
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/domain/geolocation/GeolocationRepositories.kt`.
+
+```kotlin
+package com.example.advancedtracker.domain.geolocation
+
+import kotlinx.coroutines.flow.Flow
+
+interface LocationRepository {
+    fun observeLocations(): Flow<LocationSample>
+}
+
+interface ShakeRepository {
+    val available: Boolean
+    fun observeShakes(): Flow<Unit>
+}
+```
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/domain/geolocation/GeolocationUseCases.kt`.
+
+```kotlin
+package com.example.advancedtracker.domain.geolocation
+
+import kotlinx.coroutines.flow.Flow
+
+class ObserveLocationsUseCase(private val repository: LocationRepository) {
+    operator fun invoke(): Flow<LocationSample> = repository.observeLocations()
+}
+
+class ObserveShakesUseCase(private val repository: ShakeRepository) {
+    val available: Boolean get() = repository.available
+    operator fun invoke(): Flow<Unit> = repository.observeShakes()
+}
+```
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/domain/geolocation/RouteReducer.kt`.
+
+```kotlin
+package com.example.advancedtracker.domain.geolocation
+
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/** Validación estructural. El límite de precisión es opcional, no se impone a ubicación aproximada. */
+class LocationSampleValidator(private val maxAccuracyMeters: Double? = null) {
+    init {
+        require(maxAccuracyMeters == null ||
+            (maxAccuracyMeters.isFinite() && maxAccuracyMeters >= 0.0))
+    }
+
+    fun accepts(sample: LocationSample): Boolean {
+        val point = sample.coordinate
+        if (!point.latitude.isFinite() || point.latitude !in -90.0..90.0) return false
+        if (!point.longitude.isFinite() || point.longitude !in -180.0..180.0) return false
+        if (sample.timestampMs <= 0L || !sample.speedKmh.isFinite() || sample.speedKmh < 0.0) return false
+        val accuracy = sample.accuracyMeters
+        if (accuracy != null && (!accuracy.isFinite() || accuracy < 0.0)) return false
+        return maxAccuracyMeters == null || (accuracy != null && accuracy <= maxAccuracyMeters)
+    }
+}
+
+/** Conserva hasta 500 puntos para dibujar; la distancia y el contador acumulan toda la sesión. */
+class RouteReducer(
+    private val validator: LocationSampleValidator = LocationSampleValidator(),
+    private val maxVisiblePoints: Int = 500
+) {
+    init { require(maxVisiblePoints >= 2) }
+
+    fun append(route: RouteSnapshot, sample: LocationSample): RouteSnapshot {
+        val previous = route.lastSample
+        if (!validator.accepts(sample) ||
+            (previous != null && sample.timestampMs <= previous.timestampMs)) {
+            return route.copy(rejectedCount = route.rejectedCount + 1)
+        }
+        val increment = previous?.let { distance(it.coordinate, sample.coordinate) } ?: 0.0
+        return route.copy(
+            points = (route.points + sample.coordinate).takeLast(maxVisiblePoints),
+            lastSample = sample,
+            firstTimestampMs = route.firstTimestampMs ?: sample.timestampMs,
+            distanceMeters = route.distanceMeters + increment,
+            acceptedCount = route.acceptedCount + 1
+        )
+    }
+
+    /** Haversine sobre una Tierra esférica: distancia aproximada, no distancia vial. */
+    private fun distance(from: GeoCoordinate, to: GeoCoordinate): Double {
+        val factor = Math.PI / 180.0
+        val latitudeDelta = (to.latitude - from.latitude) * factor
+        val longitudeDelta = (to.longitude - from.longitude) * factor
+        val a = sin(latitudeDelta / 2).let { it * it } +
+            cos(from.latitude * factor) * cos(to.latitude * factor) *
+            sin(longitudeDelta / 2).let { it * it }
+        return 6_371_000.0 * 2.0 * asin(sqrt(a.coerceIn(0.0, 1.0)))
+    }
+}
+```
+
+<br/>
+
+
+Archivo: `app/src/main/java/com/example/advancedtracker/domain/geolocation/ShakeGate.kt`.
+
+```kotlin
+package com.example.advancedtracker.domain.geolocation
+
+/** Decide si una lectura supera el umbral y respeta el intervalo entre gestos. */
+class ShakeGate(
+    private val thresholdG: Double = 2.7,
+    private val intervalMs: Long = 500L
+) {
+    private var lastAcceptedMs: Long? = null
+
+    init {
+        require(thresholdG.isFinite() && thresholdG > 0.0)
+        require(intervalMs >= 0L)
+    }
+
+    fun accepts(forceG: Double, elapsedMs: Long): Boolean {
+        if (!forceG.isFinite() || forceG <= thresholdG || elapsedMs < 0L) return false
+        val last = lastAcceptedMs
+        if (last != null && elapsedMs - last < intervalMs) return false
+        lastAcceptedMs = elapsedMs
+        return true
+    }
+}
+```
+
+<br/>
+
+**Resultado esperado:** contratos de flujos, validación de lecturas, cálculo de distancia y control del intervalo de agitación independientes del framework.
+
+La ruta rechaza coordenadas fuera de rango, valores no finitos, velocidad negativa y timestamps repetidos o anteriores al último aceptado. Estos controles no prueban que una ubicación sea auténtica ni corrigen todas las formas de ruido GPS. Una lectura `isMocked=true` es aceptada: el laboratorio debe funcionar con el emulador.
+
+El cálculo Haversine estima distancia geográfica entre puntos, no recorrido vial. Ruido, saltos y ubicación aproximada pueden alterar el total. Se dibujan los últimos 500 puntos; el contador y la distancia acumulan toda la sesión.
+
+<br/><br/>
+
+
+### Paso 5. Adaptar ubicación y acelerómetro y configurar Hilt
+
+La ubicación se solicita con un intervalo deseado de 4 segundos y mínimo de 2 segundos. No se garantiza una emisión exacta cada 4 segundos: depende del proveedor, permisos y condiciones del dispositivo. Alta precisión tampoco significa precisión milimétrica.
+
+El repositorio comprueba permisos, Google Play Services y ubicación habilitada al comenzar cada recolección. Maneja fallos del `Task` de registro y libera las actualizaciones cuando se cancela el flujo. Un registro que termina después de la cancelación también se libera.
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/data/geolocation/FusedLocationRepository.kt`.
+
+```kotlin
+package com.example.advancedtracker.data.geolocation
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.os.Looper
+import androidx.core.content.ContextCompat
+import androidx.core.location.LocationCompat
+import com.example.advancedtracker.domain.geolocation.GeoCoordinate
+import com.example.advancedtracker.domain.geolocation.LocationRepository
+import com.example.advancedtracker.domain.geolocation.LocationSample
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.isActive
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class FusedLocationRepository @Inject constructor(
+    @ApplicationContext private val context: Context
+) : LocationRepository {
+    private val client = LocationServices.getFusedLocationProviderClient(context)
+
+    @SuppressLint("MissingPermission") // Los permisos se comprueban al iniciar cada recolección.
+    override fun observeLocations(): Flow<LocationSample> = callbackFlow {
+        fun granted(permission: String) = ContextCompat.checkSelfPermission(
+            context, permission
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val precise = granted(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (!precise && !granted(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            close(SecurityException("No hay permiso de ubicación. Autorízalo antes de iniciar."))
+            return@callbackFlow
+        }
+        if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) !=
+            ConnectionResult.SUCCESS) {
+            close(IllegalStateException("Google Play Services no está disponible o necesita actualizarse."))
+            return@callbackFlow
+        }
+        val manager = context.getSystemService(LocationManager::class.java)
+        if (manager == null || !manager.isLocationEnabled) {
+            close(IllegalStateException("La ubicación del dispositivo está desactivada. Actívala en Ajustes."))
+            return@callbackFlow
+        }
+
+        val priority = if (precise) Priority.PRIORITY_HIGH_ACCURACY
+                       else Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        val request = LocationRequest.Builder(priority, 4_000L)
+            .setMinUpdateIntervalMillis(2_000L)
+            .build()
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                result.locations.forEach { location ->
+                    trySend(LocationSample(
+                        coordinate = GeoCoordinate(location.latitude, location.longitude),
+                        timestampMs = location.time,
+                        speedKmh = if (location.hasSpeed()) location.speed.toDouble() * 3.6 else 0.0,
+                        accuracyMeters = if (location.hasAccuracy()) location.accuracy.toDouble() else null,
+                        isMocked = LocationCompat.isMock(location)
+                    ))
+                }
+            }
+        }
+
+        try {
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+                .addOnFailureListener { error -> close(error) }
+                .addOnSuccessListener {
+                    // Si el registro termina después de la cancelación, también se libera.
+                    if (!isActive) client.removeLocationUpdates(callback)
+                }
+        } catch (error: SecurityException) {
+            close(error)
+        } catch (error: IllegalStateException) {
+            close(error)
+        }
+        awaitClose { client.removeLocationUpdates(callback) }
+    }
+}
+```
+
+<br/>
+
+El acelerómetro es opcional. El intervalo de agitación utiliza `SystemClock.elapsedRealtime()`, que es monotónico. Cancelar la recolección libera su listener. Sin sensor, el botón Centrar sigue funcionando.
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/data/geolocation/AndroidShakeRepository.kt`.
+
+```kotlin
+package com.example.advancedtracker.data.geolocation
 
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.SystemClock
+import com.example.advancedtracker.domain.geolocation.ShakeGate
+import com.example.advancedtracker.domain.geolocation.ShakeRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.sqrt
 
-class ShakeDetector(private val context: Context) {
+@Singleton
+class AndroidShakeRepository @Inject constructor(
+    @ApplicationContext context: Context
+) : ShakeRepository {
+    private val manager = context.getSystemService(SensorManager::class.java)
+    private val accelerometer = manager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    override val available: Boolean get() = manager != null && accelerometer != null
 
-    private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
-    /**
-     * Retorna un Flow frío que emite una señal de tipo Unit cada vez que detecta un gesto
-     * físico de agitación por encima del umbral de fuerza g definido (SHAKE_THRESHOLD_G).
-     */
-    fun detectShakeFlow(shakeThresholdG: Float = 2.7f, intervalMs: Long = 500L): Flow<Unit> = callbackFlow {
-        if (accelerometer == null) {
-            close(IllegalStateException("El sensor acelerómetro no se encuentra disponible en este hardware."))
+    override fun observeShakes(): Flow<Unit> = callbackFlow {
+        val sensorManager = manager
+        val sensor = accelerometer
+        if (sensorManager == null || sensor == null) {
+            close() // El gesto es opcional; el botón Centrar sigue disponible.
             return@callbackFlow
         }
-
-        var lastShakeTime = 0Long
-
+        val gate = ShakeGate()
         val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent?) {
-                if (event == null) return
-                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                    val x = event.values[0]
-                    val y = event.values[1]
-                    val z = event.values[2]
-
-                    // Cálculo del vector de gravedad
-                    val gX = x / SensorManager.GRAVITY_EARTH
-                    val gY = y / SensorManager.GRAVITY_EARTH
-                    val gZ = z / SensorManager.GRAVITY_EARTH
-
-                    // Fuerza G total resultante
-                    val gForce = sqrt(gX * gX + gY * gY + gZ * gZ)
-
-                    if (gForce > shakeThresholdG) {
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastShakeTime > intervalMs) {
-                            lastShakeTime = currentTime
-                            trySend(Unit) // Emite de manera segura al flujo reactivo
-                        }
-                    }
+            override fun onSensorChanged(event: SensorEvent) {
+                if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
+                val x = event.values[0].toDouble() / SensorManager.GRAVITY_EARTH
+                val y = event.values[1].toDouble() / SensorManager.GRAVITY_EARTH
+                val z = event.values[2].toDouble() / SensorManager.GRAVITY_EARTH
+                if (gate.accepts(sqrt(x * x + y * y + z * z), SystemClock.elapsedRealtime())) {
+                    trySend(Unit)
                 }
             }
-
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                // No se requiere para este caso de uso
-            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
-
-        // Registrar el Listener en el despachador de eventos del SensorManager
-        sensorManager.registerListener(
-            listener,
-            accelerometer,
-            SensorManager.SENSOR_DELAY_UI
-        )
-
-        // Limpieza automática cuando el colector de corrutinas cancela el flujo
-        awaitClose {
-            sensorManager.unregisterListener(listener)
+        if (!sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)) {
+            close(IllegalStateException("No fue posible registrar el acelerómetro."))
         }
+        awaitClose { sensorManager.unregisterListener(listener) }
     }
 }
 ```
 
-#### Resultado Esperado
-La clase `ShakeDetector` aislará la API imperativa `SensorEventListener` de Android dentro de un flujo funcional asíncrono y auto-gestionable. Si el colector cancela la corrutina asociada, el listener se desregistrará de inmediato del hardware para prevenir memory leaks y drenaje de batería.
+<br/>
 
-#### Verificación
-Crea un test unitario básico que instancie la lógica utilizando dobles de prueba (*mocks*) o verifica que el flujo compile adecuadamente sin llamadas de métodos deprecated del sistema operativo.
+Crea los módulos nuevos. No sustituyas los módulos existentes de Repository, Retrofit, Hilt ni persistencia.
 
----
-
-### Paso 3: Construir el Gestor de Ubicación y Flujo de Permisos Reactivo
-
-**Objetivo**: Implementar un servicio robusto de localización usando `FusedLocationProviderClient` de Google Play Services Location `21.4.0` que proporcione actualizaciones en tiempo real a través de un `Flow` de coordenadas.
-
-#### Instrucciones
-
-1. Crea el paquete `com.example.advancedtracker.data.location`.
-2. Define la clase `LocationTracker` encargada de gestionar los requests del GPS integrando los requisitos técnicos del SDK 30–37. Configura las peticiones con precisión milimétrica usando `Priority.PRIORITY_HIGH_ACCURACY`.
+Archivo: `app/src/main/java/com/example/advancedtracker/di/geolocation/GeolocationModule.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/data/location/LocationTracker.kt
-package com.example.advancedtracker.data.location
+package com.example.advancedtracker.di.geolocation
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.location.Location
-import android.os.Looper
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import com.example.advancedtracker.data.geolocation.AndroidShakeRepository
+import com.example.advancedtracker.data.geolocation.FusedLocationRepository
+import com.example.advancedtracker.domain.geolocation.LocationRepository
+import com.example.advancedtracker.domain.geolocation.ObserveLocationsUseCase
+import com.example.advancedtracker.domain.geolocation.ObserveShakesUseCase
+import com.example.advancedtracker.domain.geolocation.RouteReducer
+import com.example.advancedtracker.domain.geolocation.ShakeRepository
+import dagger.Binds
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 
-class LocationTracker(private val context: Context) {
-
-    private val fusedLocationClient: FusedLocationProviderClient =
-        LocationServices.getFusedLocationProviderClient(context)
-
-    /**
-     * Flujo asíncrono frío que emite coordenadas de ubicación geográfica actualizadas.
-     */
-    @SuppressLint("MissingPermission")
-    fun fetchLocationUpdates(intervalMs: Long = 4000L, fastestIntervalMs: Long = 2000L): Flow<Location> = callbackFlow {
-        // Validación de seguridad de compilación y runtime para Android Studio
-        if (!context.hasLocationPermissions()) {
-            close(SecurityException("Permisos de ubicación insuficientes."))
-            return@callbackFlow
-        }
-
-        // Construcción moderna del LocationRequest siguiendo lineamientos de la API 30+
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
-            .setMinUpdateIntervalMillis(fastestIntervalMs)
-            .build()
-
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                for (location in result.locations) {
-                    trySend(location) // Envia la coordenada al colector activo
-                }
-            }
-        }
-
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            callback,
-            Looper.getMainLooper()
-        )
-
-        // Limpieza de subscripción de localización para optimizar consumo energético
-        awaitClose {
-            fusedLocationClient.removeLocationUpdates(callback)
-        }
-    }
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class GeolocationBindings {
+    @Binds
+    abstract fun bindLocation(impl: FusedLocationRepository): LocationRepository
+    @Binds
+    abstract fun bindShake(impl: AndroidShakeRepository): ShakeRepository
 }
 
-// Extensión para verificar permisos
-fun Context.hasLocationPermissions(): Boolean {
-    val fine = androidx.core.content.ContextCompat.checkSelfPermission(
-        this, android.Manifest.permission.ACCESS_FINE_LOCATION
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    val coarse = androidx.core.content.ContextCompat.checkSelfPermission(
-        this, android.Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    return fine || coarse
+@Module
+@InstallIn(SingletonComponent::class)
+object GeolocationModule {
+    @Provides
+    fun provideLocations(repository: LocationRepository) = ObserveLocationsUseCase(repository)
+    @Provides
+    fun provideShakes(repository: ShakeRepository) = ObserveShakesUseCase(repository)
+    @Provides
+    fun provideReducer() = RouteReducer()
 }
 ```
 
-#### Resultado Esperado
-Un wrapper asíncrono y reactivo alrededor del cliente oficial de Google Play Services que se actualice cada 4 segundos, emitiendo un flujo estructurado de datos que puede ser cancelado de forma transparente por el ciclo de vida de la UI de Jetpack Compose.
+<br/>
 
-#### Verificación
-Asegura que el compilador no arroje advertencias (*warnings*) relacionadas con APIs deprecadas como `LocationRequest()` por constructor tradicional. El uso de `LocationRequest.Builder` es obligatorio para API 31+.
+La infraestructura implementa contratos de dominio; presentación consume casos de uso. Las anotaciones Hilt quedan fuera del dominio.
 
----
+![Lab6.1](./images/mermaid-diagram.png)
 
-### Paso 4: Implementar el ViewModel para la Telemetría y Geolocalización
+<br/><br/>
 
-**Objetivo**: Diseñar un `ViewModel` robusto que orqueste de manera concurrente el estado del mapa, procese el historial de trayectorias, consuma los flujos del acelerómetro y el GPS, y exponga canales seguros de comunicación unidireccional (UDF - *Unidirectional Data Flow*).
 
-#### Instrucciones
+### Paso 6. Crear el estado y el ViewModel
 
-1. Crea el paquete `com.example.advancedtracker.ui.viewmodel`.
-2. Define la estructura de estado para la UI:
+`startTracking()` inicia una ruta nueva. Un segundo toque durante el seguimiento no crea otro colector. `stopTracking()` cancela ambos flujos y conserva lo dibujado. Al iniciar otra ruta se reinician puntos y métricas.
+
+Un identificador de sesión evita que la finalización tardía de un trabajo cancelado cambie el estado de una sesión recién iniciada. Los eventos de cámara usan `SharedFlow` sin replay: un gesto no debe reproducirse como evento antiguo después de recrear la pantalla.
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/ui/geolocation/GeolocationUiState.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/ui/viewmodel/TelemetryUiState.kt
-package com.example.advancedtracker.ui.viewmodel
+package com.example.advancedtracker.ui.geolocation
 
-import android.location.Location
-import com.google.android.gms.maps.model.LatLng
+import com.example.advancedtracker.domain.geolocation.RouteSnapshot
 
-data class TelemetryUiState(
-    val currentPosition: LatLng? = null,
-    val routeHistory: List<LatLng> = emptyList(),
-    val totalDistanceMeters: Float = 0f,
-    val speedKmh: Float = 0f,
+data class GeolocationUiState(
+    val route: RouteSnapshot = RouteSnapshot(),
     val isTracking: Boolean = false,
-    val lastKnownAccuracy: Float = 0f
+    val sensorAvailable: Boolean = false,
+    val error: String? = null,
+    val sensorWarning: String? = null
 )
 ```
 
-3. Implementa la clase `TelemetryViewModel`. Integrará de forma coordinada el `LocationTracker` y el `ShakeDetector`:
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/ui/geolocation/GeolocationViewModel.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/ui/viewmodel/TelemetryViewModel.kt
-package com.example.advancedtracker.ui.viewmodel
+package com.example.advancedtracker.ui.geolocation
 
-import android.app.Application
-import android.location.Location
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.advancedtracker.data.location.LocationTracker
-import com.example.advancedtracker.data.sensor.ShakeDetector
-import com.google.android.gms.maps.model.LatLng
+import com.example.advancedtracker.domain.geolocation.GeoCoordinate
+import com.example.advancedtracker.domain.geolocation.ObserveLocationsUseCase
+import com.example.advancedtracker.domain.geolocation.ObserveShakesUseCase
+import com.example.advancedtracker.domain.geolocation.RouteReducer
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class TelemetryViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val locationTracker = LocationTracker(application)
-    private val shakeDetector = ShakeDetector(application)
-
-    private val _uiState = MutableStateFlow(TelemetryUiState())
-    val uiState: StateFlow<TelemetryUiState> = _uiState.asStateFlow()
-
-    // Evento de disparo unidireccional caliente para notificar a la UI que debe re-centrar la cámara
-    private val _eventCameraCenter = MutableSharedFlow<LatLng>(replay = 0)
-    val eventCameraCenter: SharedFlow<LatLng> = _eventCameraCenter.asSharedFlow()
-
-    private var trackingJob: Job? = null
+@HiltViewModel
+class GeolocationViewModel @Inject constructor(
+    private val observeLocations: ObserveLocationsUseCase,
+    private val observeShakes: ObserveShakesUseCase,
+    private val reducer: RouteReducer
+) : ViewModel() {
+    private val _state = MutableStateFlow(GeolocationUiState(sensorAvailable = observeShakes.available))
+    val state = _state.asStateFlow()
+    private val _cameraEvents = MutableSharedFlow<GeoCoordinate>(
+        replay = 0, extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val cameraEvents = _cameraEvents.asSharedFlow()
+    private var locationJob: Job? = null
     private var shakeJob: Job? = null
+    private var sessionId = 0L
 
-    init {
-        startSensorMonitoring()
-    }
-
-    /**
-     * Inicia de forma activa la recopilación de datos desde el GPS.
-     */
+    /** Cada inicio crea una ruta nueva. Un segundo toque durante el rastreo no duplica colectores. */
     fun startTracking() {
-        if (_uiState.value.isTracking) return
-
-        _uiState.update { it.copy(isTracking = true) }
-        trackingJob = viewModelScope.launch {
-            locationTracker.fetchLocationUpdates()
-                .catch { exception ->
-                    _uiState.update { it.copy(isTracking = false) }
-                }
-                .collect { location ->
-                    processNewLocation(location)
-                }
-        }
-    }
-
-    /**
-     * Cancela el seguimiento asíncrono deteniendo el flujo del GPS.
-     */
-    fun stopTracking() {
-        trackingJob?.cancel()
-        trackingJob = null
-        _uiState.update { it.copy(isTracking = false) }
-    }
-
-    private fun startSensorMonitoring() {
-        shakeJob = viewModelScope.launch {
-            shakeDetector.detectShakeFlow()
-                .catch { /* No-op: Evitar crash si el emulador no simula el sensor */ }
-                .collect {
-                    _uiState.value.currentPosition?.let { currentLatLng ->
-                        // Emitir el evento de recentrado a la UI de forma asíncrona
-                        _eventCameraCenter.emit(currentLatLng)
+        if (_state.value.isTracking) return
+        val session = ++sessionId
+        _state.value = GeolocationUiState(isTracking = true, sensorAvailable = observeShakes.available)
+        if (observeShakes.available) {
+            shakeJob = viewModelScope.launch {
+                try {
+                    observeShakes().collect { if (session == sessionId) recenter() }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    if (session == sessionId) _state.update {
+                        it.copy(sensorWarning = "El gesto no está disponible. Puedes utilizar Centrar.")
                     }
                 }
-        }
-    }
-
-    private fun processNewLocation(location: Location) {
-        val newPoint = LatLng(location.latitude, location.longitude)
-        _uiState.update { currentState ->
-            val updatedHistory = currentState.routeHistory + newPoint
-            
-            // Cálculo incremental de la distancia
-            var incrementalDistance = currentState.totalDistanceMeters
-            if (currentState.currentPosition != null) {
-                val results = FloatArray(1)
-                Location.distanceBetween(
-                    currentState.currentPosition.latitude,
-                    currentState.currentPosition.longitude,
-                    location.latitude,
-                    location.longitude,
-                    results
-                )
-                incrementalDistance += results[0]
             }
-
-            currentState.copy(
-                currentPosition = newPoint,
-                routeHistory = updatedHistory,
-                totalDistanceMeters = incrementalDistance,
-                speedKmh = (location.speed * 3.6f), // Conversión de m/s a Km/h
-                lastKnownAccuracy = location.accuracy
-            )
+        }
+        locationJob = viewModelScope.launch {
+            try {
+                observeLocations().collect { sample ->
+                    if (session == sessionId) _state.update {
+                        it.copy(route = reducer.append(it.route, sample))
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (session == sessionId) _state.update {
+                    it.copy(error = error.message ?: "No fue posible obtener la ubicación.")
+                }
+            } finally {
+                // Una sesión cancelada no puede cambiar el estado de una sesión posterior.
+                if (session == sessionId) {
+                    shakeJob?.cancel()
+                    shakeJob = null
+                    _state.update { it.copy(isTracking = false) }
+                }
+            }
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        stopTracking()
+    fun stopTracking() {
+        ++sessionId
+        locationJob?.cancel()
         shakeJob?.cancel()
+        locationJob = null
+        shakeJob = null
+        _state.update { it.copy(isTracking = false) }
+    }
+
+    fun recenter() {
+        _state.value.route.lastSample?.coordinate?.let { _cameraEvents.tryEmit(it) }
     }
 }
 ```
 
-#### Resultado Esperado
-El `TelemetryViewModel` centralizará la lógica de negocio y encapsulará todo el ciclo de vida, permitiendo a la capa composable suscribirse únicamente al estado `uiState` y al canal de eventos de cámara `eventCameraCenter` de forma independiente del ciclo de vida físico del móvil.
+<br/>
 
----
+**Verificación:** errores de ubicación aparecen en el estado; un fallo del acelerómetro solo deshabilita el gesto. La cancelación se vuelve a lanzar y no se presenta como fallo de negocio.
 
-### Paso 3: Diseñar el Flujo Moderno de Solicitud de Permisos en Compose
+<br/><br/>
 
-> *Nota de Arquitectura*: En concordancia con las lecciones previas y la evolución del sistema a partir de la API 30+, implementaremos un flujo que distinga la denegación simple de la denegación permanente, mostrando un cuadro de diálogo educativo (*Rationale*) altamente pedagógico y permitiendo la redirección directa a la configuración del sistema operativo.
 
-#### Instrucciones
+### Paso 7. Solicitar y reevaluar los permisos
 
-1. Crea el paquete `com.example.advancedtracker.ui.components`.
-2. Implementa el componente de diálogo `PermissionRationaleDialog`:
+Se solicitan FINE y COARSE juntos. COARSE basta para ingresar al mapa; FINE permite pedir mayor precisión. Al regresar de Ajustes se consulta nuevamente el estado real del sistema.
+
+Una respuesta negativa no se clasifica automáticamente como denegación permanente. Tras una solicitud terminada, si ambos permisos siguen denegados y el sistema ya no indica que deba mostrarse una explicación, la pantalla ofrece Ajustes. Ese estado puede depender de políticas o decisiones del sistema y no se etiqueta como certeza universal de denegación permanente.
+
+No se declara ni solicita `ACCESS_BACKGROUND_LOCATION`, porque el alcance es captura con la actividad visible.
+
+<br/>
+
+Archivo: `app/src/main/java/com/example/advancedtracker/ui/geolocation/LocationPermissionGate.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/ui/components/PermissionRationaleDialog.kt
-package com.example.advancedtracker.ui.components
+package com.example.advancedtracker.ui.geolocation
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-
-@Composable
-fun PermissionRationaleDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Acceso a la Ubicación Requerido") },
-        text = {
-            Text(text = "Para poder registrar la trayectoria en tiempo real y mostrar tu avance en el mapa interactivo, la aplicación necesita acceso a tu ubicación precisa (GPS). Esta información no es compartida con terceros y se procesa localmente.")
-        },
-        confirmButton = {
-            Button(onClick = onConfirm) {
-                Text(text = "Conceder Permiso")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "Más Tarde")
-            }
-        }
-    )
-}
-```
-
-3. Diseña la pantalla contenedora de permisos `PermissionGate` que interceptará la vista del mapa si los privilegios requeridos por el SDK no han sido otorgados:
-
-```kotlin
-// File: app/src/main/java/com/example/advancedtracker/ui/components/PermissionGate.kt
-package com.example.advancedtracker.ui.components
-
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.advancedtracker.data.location.hasLocationPermissions
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+
+private data class PermissionSnapshot(val allowed: Boolean, val precise: Boolean)
+
+private fun permissionSnapshot(activity: ComponentActivity): PermissionSnapshot {
+    fun granted(permission: String) = ContextCompat.checkSelfPermission(
+        activity, permission
+    ) == PackageManager.PERMISSION_GRANTED
+    val fine = granted(Manifest.permission.ACCESS_FINE_LOCATION)
+    return PermissionSnapshot(fine || granted(Manifest.permission.ACCESS_COARSE_LOCATION), fine)
+}
 
 @Composable
-fun PermissionGate(
-    modifier: Modifier = Modifier,
-    onPermissionsGranted: () -> Unit,
-    content: @Composable () -> Unit
+fun LocationPermissionGate(
+    activity: ComponentActivity,
+    onPermissionLost: () -> Unit,
+    content: @Composable (precise: Boolean) -> Unit
 ) {
-    val context = LocalContext.current
-    var hasPermissions by remember { mutableStateOf(context.hasLocationPermissions()) }
-    var showRationale by remember { mutableStateOf(false) }
-    var hasPermanentlyDenied by remember { mutableStateOf(false) }
+    var permissions by remember { mutableStateOf(permissionSnapshot(activity)) }
+    var showRationale by rememberSaveable { mutableStateOf(false) }
+    var requestFinished by rememberSaveable { mutableStateOf(false) }
+    val onLost by rememberUpdatedState(onPermissionLost)
+    fun shouldExplain() = ActivityCompat.shouldShowRequestPermissionRationale(
+        activity, Manifest.permission.ACCESS_FINE_LOCATION
+    ) || ActivityCompat.shouldShowRequestPermissionRationale(
+        activity, Manifest.permission.ACCESS_COARSE_LOCATION
+    )
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissionsMap ->
-        val fineGranted = permissionsMap[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseGranted = permissionsMap[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        
-        if (fineGranted || coarseGranted) {
-            hasPermissions = true
-            onPermissionsGranted()
-        } else {
-            hasPermissions = false
-            hasPermanentlyDenied = true
-        }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        requestFinished = true
+        permissions = permissionSnapshot(activity)
+        if (!permissions.allowed) onLost()
+    }
+    val request: () -> Unit = {
+        launcher.launch(arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ))
     }
 
-    LaunchedEffect(Unit) {
-        if (hasPermissions) {
-            onPermissionsGranted()
+    DisposableEffect(activity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissions = permissionSnapshot(activity)
+                if (!permissions.allowed) onLost()
+            }
         }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
     }
 
-    if (hasPermissions) {
-        content()
+    if (permissions.allowed) {
+        content(permissions.precise)
     } else {
+        val settingsSuggested = requestFinished && !shouldExplain()
         Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Permisos Requeridos",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
-            Text(
-                text = "Para continuar con la telemetría geográfica avanzada, se necesita la autorización de geolocalización.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
-
-            Button(onClick = {
-                val activity = context as? android.app.Activity
-                val shouldShow = activity?.let {
-                    androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
-                        it, Manifest.permission.ACCESS_FINE_LOCATION
-                    )
-                } ?: false
-
-                if (shouldShow) {
-                    showRationale = true
-                } else {
-                    permissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
-                    )
-                }
-            }) {
-                Text("Autorizar Ubicación")
-            }
-
-            if (hasPermanentlyDenied) {
-                Spacer(modifier = Modifier.height(16.dp))
-                TextButton(onClick = {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    context.startActivity(intent)
-                }) {
-                    Text("Configuración del Sistema")
+            Text("Ubicación para esta práctica", style = MaterialTheme.typography.titleLarge)
+            Text("Autoriza ubicación para capturar una ruta mientras esta pantalla está visible. También puedes usar ubicación aproximada.")
+            if (settingsSuggested) {
+                Text("El sistema no muestra una explicación para volver a solicitar el permiso. Revisa los permisos de la aplicación en Ajustes.")
+                Button(onClick = {
+                    activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", activity.packageName, null)
+                    })
+                }) { Text("Abrir ajustes de la aplicación") }
+            } else {
+                Button(onClick = { if (shouldExplain()) showRationale = true else request() }) {
+                    Text("Solicitar ubicación")
                 }
             }
+            TextButton(onClick = { activity.finish() }) { Text("Salir del laboratorio") }
         }
     }
 
     if (showRationale) {
-        PermissionRationaleDialog(
-            onDismiss = { showRationale = false },
-            onConfirm = {
-                showRationale = false
-                permissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
+        AlertDialog(
+            onDismissRequest = { showRationale = false },
+            title = { Text("¿Para qué usamos la ubicación?") },
+            text = { Text("Se utiliza para dibujar la posición y calcular una distancia aproximada durante la sesión. La ruta de esta práctica permanece en memoria. Google Maps utiliza sus servicios para cargar el mapa.") },
+            confirmButton = {
+                TextButton(onClick = { showRationale = false; request() }) { Text("Continuar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRationale = false }) { Text("Ahora no") }
             }
         )
     }
 }
 ```
 
-#### Resultado Esperado
-Un flujo reactivo e inquebrantable de control de seguridad. Si el usuario decide rechazar el permiso de manera recurrente, se le presentará el botón explícito para forzar su redirección al menú del sistema, satisfaciendo los criterios de diseño exigidos por Google Play Store en el rastreo de geolocalización sensible.
+<br/><br/>
 
----
+### Paso 8. Dibujar el mapa y agregar la actividad debug
 
-### Paso 5: Construir la UI del Mapa Interactivo y Controladores con Jetpack Compose
+La pantalla muestra el permiso concedido, distancia aproximada, velocidad, precisión reportada y contadores. La cámara espera a que cargue el mapa. Su marcador actualiza la posición recordada; la polilínea utiliza el historial de la sesión.
 
-**Objetivo**: Integrar la librería Google Maps Compose `4.3.3` dentro de la interfaz declarativa. Vincularás el controlador de la cámara para que reciba las señales asíncronas del `SharedFlow` emitidas por la agitación física del acelerómetro y grafique de forma progresiva la trayectoria del usuario.
+La capa My Location del SDK queda desactivada: la posición procede de nuestro repositorio y se muestra mediante un marcador propio. Así evitamos otra fuente de ubicación activa que oculte el propósito del flujo del laboratorio.
 
-#### Instrucciones
+<br/>
 
-1. Crea el componente visual principal de mapa `TelemetryMapScreen`:
+Archivo: `app/src/main/java/com/example/advancedtracker/ui/geolocation/GeolocationMapScreen.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/ui/components/TelemetryMapScreen.kt
-package com.example.advancedtracker.ui.components
+package com.example.advancedtracker.ui.geolocation
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.advancedtracker.ui.viewmodel.TelemetryViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.advancedtracker.domain.geolocation.GeoCoordinate
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import java.util.Locale
+
+private fun GeoCoordinate.toLatLng() = LatLng(latitude, longitude)
+private fun Double.formatted(decimals: Int) = String.format(Locale.getDefault(), "%.$decimals" + "f", this)
 
 @Composable
-fun TelemetryMapScreen(
-    viewModel: TelemetryViewModel,
+fun GeolocationMapScreen(
+    state: GeolocationUiState,
+    precise: Boolean,
+    cameraEvents: Flow<GeoCoordinate>,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onRecenter: () -> Unit,
+    onLocationSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    
-    // Configuración inicial por defecto (ejemplo: Latitud/Longitud central de referencia)
-    val defaultPos = LatLng(0.0, 0.0)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultPos, 15f)
-    }
+    val initial = LatLng(19.4326, -99.1332)
+    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(initial, 12f) }
+    val marker = remember { MarkerState(position = initial) }
+    var mapLoaded by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val sample = state.route.lastSample
+    val points = remember(state.route.points) { state.route.points.map { it.toLatLng() } }
+    SideEffect { sample?.let { marker.position = it.coordinate.toLatLng() } }
 
-    // Escuchar activamente el SharedFlow caliente de recentrado del mapa mediante acelerómetro
-    LaunchedEffect(key1 = viewModel) {
-        viewModel.eventCameraCenter.collectLatest { targetLatLng ->
-            cameraPositionState.animate(
-                update = CameraUpdateFactory.newLatLngZoom(targetLatLng, 17f),
-                durationMs = 1000
-            )
+    // El primer punto centra la cámara una vez por ruta y también después de recrear la pantalla.
+    LaunchedEffect(mapLoaded, state.route.firstTimestampMs) {
+        val current = state.route.lastSample?.coordinate
+        if (mapLoaded && current != null) camera.animate(CameraUpdateFactory.newLatLngZoom(current.toLatLng(), 16f))
+    }
+    LaunchedEffect(mapLoaded, lifecycleOwner, cameraEvents) {
+        if (mapLoaded) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            cameraEvents.collectLatest { target ->
+                camera.animate(CameraUpdateFactory.newLatLngZoom(target.toLatLng(), 17f), 700)
+            }
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Geolocalización · Lab 6.1", style = MaterialTheme.typography.titleMedium)
+            Text(if (precise) "Permiso: ubicación precisa" else "Permiso: ubicación aproximada")
+            Text("Distancia aproximada: ${(state.route.distanceMeters / 1000.0).formatted(2)} km")
+            Text("Velocidad: ${(sample?.speedKmh ?: 0.0).formatted(1)} km/h")
+            Text("Puntos: ${state.route.acceptedCount} · Rechazados: ${state.route.rejectedCount}")
+            Text("Precisión reportada: ${sample?.accuracyMeters?.let { it.formatted(1) + " m" } ?: "sin lectura"}")
+            if (sample?.isMocked == true) Text("Lectura marcada como simulada por el proveedor")
+            if (!state.sensorAvailable) Text("Sin acelerómetro: utiliza el botón Centrar")
+            state.sensorWarning?.let { Text(it) }
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (state.isTracking && sample == null) Text("Esperando ubicación…")
+            if (!mapLoaded) Text("Esperando mapa: verifica Internet y la API key si no carga")
+        }
+        HorizontalDivider()
         GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = true),
-            properties = MapProperties(
-                isMyLocationEnabled = state.currentPosition != null,
-                maxZoomPreference = 20f,
-                minZoomPreference = 3f
-            )
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            cameraPositionState = camera,
+            onMapLoaded = { mapLoaded = true },
+            // La ubicación viene de nuestro repositorio; no activamos una segunda fuente del SDK.
+            properties = MapProperties(isMyLocationEnabled = false),
+            uiSettings = MapUiSettings(myLocationButtonEnabled = false, zoomControlsEnabled = true)
         ) {
-            // Dibujar la trayectoria histórica recolectada por el GPS de alta precisión
-            if (state.routeHistory.size > 1) {
-                Polyline(
-                    points = state.routeHistory,
-                    clickable = false,
-                    color = Color(0xFF1E88E5),
-                    width = 12f
-                )
-            }
-
-            // Marcador visual de posición actual con precisión
-            state.currentPosition?.let { current ->
-                Marker(
-                    state = MarkerState(position = current),
-                    title = "Posición Actual",
-                    snippet = "Precisión: ${"%.1f".format(state.lastKnownAccuracy)}m"
-                )
-            }
+            if (points.size > 1) Polyline(points = points, color = Color(0xFF1E88E5), width = 8f)
+            if (sample != null) Marker(state = marker, title = "Posición actual")
         }
-
-        // Overlay de Telemetría Flotante
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(16.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f))
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = "Métricas de Telemetría",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "Distancia: ${"%.2f".format(state.totalDistanceMeters / 1000f)} Km")
-                Text(text = "Velocidad: ${"%.1f".format(state.speedKmh)} Km/h")
+        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = if (state.isTracking) onStop else onStart, modifier = Modifier.weight(1f)) {
+                Text(if (state.isTracking) "Detener" else "Iniciar nueva ruta")
             }
-            Text(text = "Último Punto: ${state.currentPosition?.let { "${"%.5f".format(it.latitude)}, ${"%.5f".format(it.longitude)}" } ?: "Buscando GPS..."}")
+            Button(onClick = onRecenter, enabled = sample != null && mapLoaded) { Text("Centrar") }
         }
-
-        // Panel de control inferior (Play / Stop Tracking)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
-        ) {
-            Button(
-                onClick = {
-                    if (state.isTracking) {
-                        viewModel.stopTracking()
-                    } else {
-                        viewModel.startTracking()
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (state.isTracking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-            ) {
-                Text(text = if (state.isTracking) "Detener Rastreo" else "Iniciar Rastreo")
-            }
+        TextButton(onClick = onLocationSettings, modifier = Modifier.fillMaxWidth()) {
+            Text("Ajustes de ubicación del dispositivo")
         }
     }
 }
 ```
+<br/>
 
-2. Integra la lógica global de la aplicación en el punto de entrada de la actividad `MainActivity`:
+Crea la actividad siguiente en **`src/debug/java`**, no en `main`. Usa el tema `AdvancedTrackerTheme` del proyecto y obtiene el ViewModel mediante Hilt con `ViewModelProvider`, como la práctica anterior.
+
+`collectAsStateWithLifecycle()` controla la suscripción visual. La llamada a `stopTracking()` en `onStop()` controla las capturas iniciadas en `viewModelScope`; son responsabilidades distintas.
+
+<br/>
+
+Archivo: `app/src/debug/java/com/example/advancedtracker/ui/geolocation/GeolocationLabActivity.kt`.
 
 ```kotlin
-// File: app/src/main/java/com/example/advancedtracker/MainActivity.kt
-package com.example.advancedtracker
+package com.example.advancedtracker.ui.geolocation
 
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import com.example.advancedtracker.ui.components.PermissionGate
-import com.example.advancedtracker.ui.components.TelemetryMapScreen
-import com.example.advancedtracker.ui.viewmodel.TelemetryViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.advancedtracker.ui.theme.AdvancedTrackerTheme
+import dagger.hilt.android.AndroidEntryPoint
 
-class MainActivity : ComponentActivity() {
-
-    private val telemetryViewModel: TelemetryViewModel by viewModels()
+@AndroidEntryPoint
+class GeolocationLabActivity : ComponentActivity() {
+    private lateinit var geoViewModel: GeolocationViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        geoViewModel = ViewModelProvider(this)[GeolocationViewModel::class.java]
         setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    PermissionGate(
-                        onPermissionsGranted = {
-                            // Los permisos están concedidos. El ViewModel comenzará a responder.
-                        }
-                    ) {
-                        TelemetryMapScreen(
-                            viewModel = telemetryViewModel,
-                            modifier = Modifier.fillMaxSize()
+            AdvancedTrackerTheme {
+                Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                    LocationPermissionGate(
+                        activity = this@GeolocationLabActivity,
+                        onPermissionLost = geoViewModel::stopTracking
+                    ) { precise ->
+                        val state by geoViewModel.state.collectAsStateWithLifecycle()
+                        GeolocationMapScreen(
+                            state = state,
+                            precise = precise,
+                            cameraEvents = geoViewModel.cameraEvents,
+                            onStart = geoViewModel::startTracking,
+                            onStop = geoViewModel::stopTracking,
+                            onRecenter = geoViewModel::recenter,
+                            onLocationSettings = {
+                                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                            }
                         )
                     }
                 }
             }
         }
     }
+
+    override fun onStop() {
+        // Al salir, bloquear el dispositivo o rotar, la sesión se detiene; no se reinicia sola.
+        geoViewModel.stopTracking()
+        super.onStop()
+    }
 }
 ```
 
----
+<br/>
 
-## Validación y Pruebas
+En `app/src/debug/AndroidManifest.xml`, conserva las actividades REST y persistencia, así como las configuraciones existentes. Añade los siguientes elementos directamente dentro de `<manifest>`, antes de `<application>`:
 
-Para garantizar que el motor de telemetría y geolocalización responde de acuerdo a las especificaciones técnicas requeridas, realizaremos una simulación de pruebas que incluye una prueba de inyección de datos adversarios.
+```xml
+<!-- Cap06: permisos exclusivos de la demostración debug. -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-feature
+    android:name="android.hardware.sensor.accelerometer"
+    android:required="false" />
+```
 
-### Procedimiento de Prueba Interactiva en Emulador
+Dentro del `<application>` existente, agrega los metadatos y la actividad:
 
-1. Inicia un emulador Android con soporte para Google Play Services de API 33 o superior.
-2. Abre la consola de desarrollador del emulador haciendo clic en los tres puntos (`...`) (*Extended Controls*).
-3. Dirígete a la pestaña **Location** e importa un archivo de trayecto GPX, o define manualmente varios puntos agregándolos a la cola de simulación.
-4. Presiona el botón de **Play** de la simulación del emulador en una velocidad constante de `2x` o `5x`.
-5. En la aplicación ejecutándose en el emulador, pulsa el botón **Iniciar Rastreo**.
-6. **Verificación visual del mapa**: Observa que el marcador de posición dibuje progresivamente una polilínea azul de alta precisión sobre las calles recorridas y que el HUD superior actualice la velocidad de forma reactiva, junto al kilometraje total.
+```xml
+<meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="@string/maps_api_key" />
 
-### Escenario de Prueba Adversaria: Inyección de Coordenadas Erráticas o Telemetría Inestable
+<activity
+    android:name="com.example.advancedtracker.ui.geolocation.GeolocationLabActivity"
+    android:exported="true"
+    android:label="Geolocalización Lab 6.1" />
+```
 
-Para probar la resiliencia técnica de la capa de datos de la aplicación ante escenarios donde los servicios del GPS entregan coordenadas imposibles o fraudulentas (por ejemplo, coordenadas con altos índices de error de exactitud), introduciremos una regla de validación de telemetría en el colector del `ViewModel`.
+<br/>
 
-#### Procedimiento de Validación
-Modifica temporalmente la función `processNewLocation` del `TelemetryViewModel` para filtrar puntos de baja calidad. Inserta una restricción que rechace coordenadas con un margen de error mayor a 40 metros (este filtrado evita saltos bruscos provocados por rebotes de señal en rascacielos o pérdida transitoria de cobertura GPS):
+Añade cada elemento solo si falta; no dupliques permisos, metadatos ni registros de actividad.
+
+El permiso INTERNET ya está en el manifiesto principal. Conserva `.TrackerApplication`, el tema y `MainActivity` de ese archivo. No agregues otro MAIN/LAUNCHER.
+
+La exportación de la actividad es exclusiva de debug y permite abrirla mediante `adb`. Release no incluye la actividad ni su recurso de API key. Las clases compartidas y dependencias sí se compilan como parte del módulo; no se afirma que estén excluidas de release.
+
+<br/><br/>
+
+
+### Paso 9. Incorporar pruebas unitarias reproducibles
+
+Crea los cuatro archivos siguientes bajo `app/src/test/java`. Contienen **16 casos**: 6 del cálculo y validación, 3 del gesto y 7 del ViewModel. No requieren una API key, emulador, ubicación real ni Mockito.
+
+Los dobles entregan flujos controlados; la regla sustituye Main por un dispatcher de prueba. Las pruebas de cancelación comprueban que desaparecen las suscripciones a ambos flujos. La liberación real de los callbacks Android se valida adicionalmente en la prueba manual de ciclo de vida.
+
+Archivo: `app/src/test/java/com/example/advancedtracker/domain/geolocation/RouteReducerTest.kt`.
 
 ```kotlin
-// Modificación de prueba en TelemetryViewModel.kt para validación adversaria
-private fun processNewLocation(location: Location) {
-    // Escenario de Defensa: Ignorar si la precisión reportada por el sensor GPS supera los 40 metros
-    if (location.accuracy > 40.0f) {
-         // Registro de advertencia interna en consola. La telemetría descarta el punto fraudulento
-         android.util.Log.w("TelemetryTracker", "Coordenada ignorada debido a baja precisión: ${location.accuracy}m")
-         return
+package com.example.advancedtracker.domain.geolocation
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class RouteReducerTest {
+    private fun sample(lat: Double = 0.0, lon: Double = 0.0, time: Long = 1L, accuracy: Double? = 5.0) =
+        LocationSample(GeoCoordinate(lat, lon), time, 36.0, accuracy, isMocked = true)
+
+    @Test
+    fun invalidCoordinatesDoNotChangeDistanceOrLastPoint() {
+        val reducer = RouteReducer()
+        val initial = reducer.append(RouteSnapshot(), sample())
+        val result = reducer.append(initial, sample(lat = 95.0, time = 2L))
+        assertEquals(initial.points, result.points)
+        assertEquals(initial.lastSample, result.lastSample)
+        assertEquals(initial.distanceMeters, result.distanceMeters, 0.0)
+        assertEquals(1, result.rejectedCount)
     }
-    
-    // Proceso normal de telemetría
-    val newPoint = LatLng(location.latitude, location.longitude)
-    // ... lógica remanente
+
+    @Test
+    fun repeatedAndOlderTimestampsAreRejected() {
+        val reducer = RouteReducer()
+        val initial = reducer.append(RouteSnapshot(), sample(time = 10L))
+        val result = reducer.append(reducer.append(initial, sample(time = 10L)), sample(time = 9L))
+        assertEquals(1, result.acceptedCount)
+        assertEquals(2, result.rejectedCount)
+    }
+
+    @Test
+    fun nonFiniteValuesAndNegativeSpeedAreRejected() {
+        val validator = LocationSampleValidator()
+        assertFalse(validator.accepts(sample(lat = Double.NaN)))
+        assertFalse(validator.accepts(sample(lon = Double.POSITIVE_INFINITY)))
+        assertFalse(validator.accepts(sample().copy(speedKmh = -1.0)))
+        assertFalse(validator.accepts(sample(accuracy = -1.0)))
+    }
+
+    @Test
+    fun approximateLocationIsAcceptedByDefaultAndAccuracyLimitIsExplicit() {
+        val lowAccuracy = sample(accuracy = 100.0)
+        assertTrue(LocationSampleValidator().accepts(lowAccuracy))
+        assertFalse(LocationSampleValidator(maxAccuracyMeters = 40.0).accepts(lowAccuracy))
+        assertFalse(LocationSampleValidator(maxAccuracyMeters = 40.0).accepts(sample(accuracy = null)))
+        assertTrue(LocationSampleValidator().accepts(sample(accuracy = null)))
+    }
+
+    @Test
+    fun oneDegreeOnTheEquatorIsApproximately111Kilometers() {
+        val reducer = RouteReducer()
+        val initial = reducer.append(RouteSnapshot(), sample(lon = 0.0, time = 1L))
+        val result = reducer.append(initial, sample(lon = 1.0, time = 2L))
+        assertEquals(111_195.0, result.distanceMeters, 100.0)
+    }
+
+    @Test
+    fun drawingLimitPreservesDistanceCountAndStartTimestamp() {
+        val reducer = RouteReducer(maxVisiblePoints = 2)
+        var route = RouteSnapshot()
+        for (index in 0..3) route = reducer.append(route, sample(lon = index.toDouble(), time = index + 1L))
+        assertEquals(2, route.points.size)
+        assertEquals(4, route.acceptedCount)
+        assertEquals(GeoCoordinate(0.0, 2.0), route.points.first())
+        assertEquals(333_585.0, route.distanceMeters, 200.0)
+        assertEquals(1L, route.firstTimestampMs ?: -1L)
+    }
 }
 ```
 
-Simula una señal defectuosa en la herramienta *Extended Controls* del emulador incrementando manualmente el parámetro `Accuracy` (precisión) en un valor de `100` o superior. 
+<br/>
 
-**Resultado de Validación**: La terminal de *Logcat* de Android Studio debe registrar de forma continua las advertencias filtradas, demostrando que la polilínea y los cálculos de distancia permanecen inalterables ante lecturas erróneas, garantizando la resiliencia de la app en producción.
+Archivo: `app/src/test/java/com/example/advancedtracker/domain/geolocation/ShakeGateTest.kt`.
 
----
+```kotlin
+package com.example.advancedtracker.domain.geolocation
 
-## Solución de Problemas
+import org.junit.Assert.*
+import org.junit.Test
 
-A continuación, se describen los dos problemas más comunes que pueden ocurrir durante la ejecución y despliegue del proyecto, detallando sus causas de origen y las acciones técnicas necesarias para resolverlos.
+class ShakeGateTest {
+    @Test
+    fun normalGravityDoesNotTriggerAndStrongMovementDoes() {
+        val gate = ShakeGate()
+        assertFalse(gate.accepts(1.0, 0L))
+        assertTrue(gate.accepts(3.0, 10L))
+    }
 
-### Problema 1: El mapa se muestra completamente en gris o con rejillas sin cargar imágenes de satélite
+    @Test
+    fun repeatedGestureNeedsAtLeast500Milliseconds() {
+        val gate = ShakeGate()
+        assertTrue(gate.accepts(3.0, 1_000L))
+        assertFalse(gate.accepts(4.0, 1_200L))
+        assertTrue(gate.accepts(3.0, 1_500L))
+    }
 
-* **Síntoma**: El contenedor del mapa renderiza correctamente en pantalla con las opciones de control de zoom pero el fondo permanece de color gris claro o con marcas de agua de Google, sin descargar texturas geográficas.
-* **Causa**: La credencial `API_KEY` colocada en el archivo `AndroidManifest.xml` es inválida, no tiene los permisos activos para consumir la SDK de *Maps SDK for Android* en la Google Cloud Console, o las firmas SHA-1 de depuración del proyecto no fueron añadidas en la configuración de restricciones de la credencial en la consola web de Google.
-* **Resolución**:
-  1. Accede a tu consola de [Google Cloud Console](https://console.cloud.google.com/).
-  2. Verifica que el proyecto tenga la API denominada **Maps SDK for Android** habilitada en la pestaña de APIs & Services.
-  3. Compara el string exacto de la credencial y asegúrate de reemplazar `"REPLACE_WITH_YOUR_API_KEY"` en el `AndroidManifest.xml` con la llave autogenerada.
-  4. Si la llave tiene restricciones de IP o de aplicación, inhabilítalas temporalmente durante la sesión del laboratorio para comprobar la conectividad del emulador.
+    @Test
+    fun invalidForceAndBackwardClockDoNotTrigger() {
+        val gate = ShakeGate()
+        assertFalse(gate.accepts(Double.NaN, 1L))
+        assertFalse(gate.accepts(3.0, -1L))
+        assertTrue(gate.accepts(3.0, 1_000L))
+        assertFalse(gate.accepts(3.0, 900L))
+    }
+}
+```
 
-### Problema 2: El gesto de agitación (Shake Gesture) no recentra la cámara en el mapa o genera fugas de memoria
+<br/>
 
-* **Síntoma**: Al agitar de forma rápida el dispositivo físico o presionar el botón de simulación de aceleración en el emulador, la cámara de Google Maps no realiza ninguna transición animada hacia la ubicación actual del usuario. Adicionalmente, el rendimiento de la aplicación se degrada después de abrir y cerrar repetidas veces la pantalla.
-* **Causa**: El hardware del acelerómetro no está disponible o simulado, el listener del `SensorManager` no está liberando recursos debido a una recolección fallida del flujo frío de Kotlin Coroutines, o no se ha iniciado formalmente la recolección asíncrona mediante el constructor apropiado de Jetpack Compose (`LaunchedEffect`).
-* **Resolución**:
-  1. Si ejecutas en emulador, asegúrate de activar la simulación de movimiento físico abriendo *Extended Controls* -> *Virtual Sensors* y rotando el dispositivo en los ejes tridimensionales.
-  2. Asegúrate de consumir el flujo `eventCameraCenter` de forma asíncrona y segura mediante `collectLatest` en un bloque `LaunchedEffect`. Esto asegura que los hilos de render de la UI reciban y actualicen de forma inmediata el estado visual del mapa.
-  3. Revisa la clase `ShakeDetector` y valida que el bloque `awaitClose` esté presente. Esto remueve de manera explícita el listener mediante `sensorManager.unregisterListener(listener)`.
+Archivo: `app/src/test/java/com/example/advancedtracker/ui/geolocation/GeolocationMainDispatcherRule.kt`.
 
----
+```kotlin
+package com.example.advancedtracker.ui.geolocation
 
-## Limpieza
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
-Al finalizar el laboratorio, es indispensable limpiar el entorno local para asegurar un uso óptimo del almacenamiento del sistema de desarrollo:
+@OptIn(ExperimentalCoroutinesApi::class)
+class GeolocationMainDispatcherRule(
+    val dispatcher: TestDispatcher = StandardTestDispatcher()
+) : TestWatcher() {
+    override fun starting(description: Description) { Dispatchers.setMain(dispatcher) }
+    override fun finished(description: Description) { Dispatchers.resetMain() }
+}
+```
 
-1. Realiza una limpieza completa del caché y los artefactos binarios construidos por Gradle:
-   ```bash
-   ./gradlew clean
-   ```
-2. Cierra el Emulador Android y remueve las ubicaciones simuladas para liberar el procesador de tu equipo.
-3. Si utilizaste un dispositivo físico, accede al menú *Ajustes* -> *Aplicaciones* -> *Advanced Telemetry Tracker* y procede a desinstalar la aplicación para desvincular los procesos en background de la batería del dispositivo.
+<br/>
 
----
+Archivo: `app/src/test/java/com/example/advancedtracker/ui/geolocation/GeolocationViewModelTest.kt`.
 
-## Resumen
+```kotlin
+package com.example.advancedtracker.ui.geolocation
 
-En este laboratorio, has integrado y consolidado con éxito múltiples APIs avanzadas de Android en una sola aplicación de telemetría moderna y reactiva:
+import com.example.advancedtracker.domain.geolocation.GeoCoordinate
+import com.example.advancedtracker.domain.geolocation.LocationRepository
+import com.example.advancedtracker.domain.geolocation.LocationSample
+import com.example.advancedtracker.domain.geolocation.ObserveLocationsUseCase
+import com.example.advancedtracker.domain.geolocation.ObserveShakesUseCase
+import com.example.advancedtracker.domain.geolocation.RouteReducer
+import com.example.advancedtracker.domain.geolocation.ShakeRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
 
-- **Estrategia Moderna de Permisos**: Diseñaste un flujo completo para la gestión de permisos en tiempo de ejecución compatible con APIs del nivel 30 al 37, incorporando una lógica que despliega un diálogo explicativo de negocio (*Rationale*) y una ruta alternativa hacia los ajustes del sistema ante una denegación permanente.
-- **Geolocalización Asíncrona**: Consumiste coordenadas geográficas periódicas mediante `FusedLocationProviderClient` de Google Play Services Location `21.4.0`, exponiéndolas de forma reactiva y asíncrona mediante flujos de Kotlin Coroutines (`Flow` y `callbackFlow`).
-- **Visualización en Mapa Interactivos**: Representaste trayectorias históricas y dinámicas en tiempo real mediante el renderizado de `Polyline` utilizando la biblioteca moderna Google Maps Compose `4.3.3`.
-- **Integración con Sensores de Movimiento**: Conectaste de manera concurrente el acelerómetro nativo del hardware para implementar interacciones físicas fluidas (*Shake Gesture*), procesando la señal y coordinando el movimiento de la cámara a través del ViewModel mediante canales de comunicación asíncronos unidireccionales (`SharedFlow`).
+@OptIn(ExperimentalCoroutinesApi::class)
+class GeolocationViewModelTest {
+    @get:Rule val main = GeolocationMainDispatcherRule()
 
-### Recursos Adicionales para Profundizar
+    private class FakeLocations : LocationRepository {
+        val samples = MutableSharedFlow<LocationSample>(extraBufferCapacity = 4)
+        var stream: Flow<LocationSample> = samples
+        override fun observeLocations() = stream
+    }
+    private class FakeShakes(override val available: Boolean = true) : ShakeRepository {
+        val events = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+        override fun observeShakes(): Flow<Unit> = events
+    }
+    private fun sample(time: Long = 1L) =
+        LocationSample(GeoCoordinate(19.4326, -99.1332), time, 36.0, 5.0, true)
+    private fun viewModel(locations: FakeLocations, shakes: FakeShakes = FakeShakes()) =
+        GeolocationViewModel(ObserveLocationsUseCase(locations), ObserveShakesUseCase(shakes), RouteReducer())
 
-* [Documentación Oficial de Maps SDK for Android en Compose](https://github.com/googlemaps/android-maps-compose)
-* [Guía Oficial de Geolocalización en Google Play Services](https://developers.google.com/android/guides/releases)
-* [Buenas Prácticas para el Manejo de Permisos en Android (Google Developers)](https://developer.android.com/training/permissions/requesting)
-* [Guía de Kotlin Coroutines y CallbackFlow asíncronos](https://kotlinlang.org/docs/flow.html#callbackflow)
+    @Test
+    fun doubleStartDoesNotDuplicateSubscriptionsAndStopReleasesBothFlows() = runTest {
+        val locations = FakeLocations()
+        val shakes = FakeShakes()
+        val vm = viewModel(locations, shakes)
+        vm.startTracking()
+        vm.startTracking()
+        runCurrent()
+        assertEquals(1, locations.samples.subscriptionCount.value)
+        assertEquals(1, shakes.events.subscriptionCount.value)
+        vm.stopTracking()
+        runCurrent()
+        assertFalse(vm.state.value.isTracking)
+        assertEquals(0, locations.samples.subscriptionCount.value)
+        assertEquals(0, shakes.events.subscriptionCount.value)
+    }
+
+    @Test
+    fun stoppedSessionRetainsRouteAndNewSessionResetsIt() = runTest {
+        val locations = FakeLocations()
+        val vm = viewModel(locations)
+        try {
+            vm.startTracking(); runCurrent()
+            locations.samples.emit(sample()); runCurrent()
+            vm.stopTracking(); runCurrent()
+            assertEquals(1, vm.state.value.route.acceptedCount)
+            vm.startTracking(); runCurrent()
+            assertTrue(vm.state.value.isTracking)
+            assertEquals(0, vm.state.value.route.acceptedCount)
+        } finally { vm.stopTracking(); runCurrent() }
+    }
+
+    @Test
+    fun invalidSampleIsRejectedWithoutLosingTheValidPosition() = runTest {
+        val locations = FakeLocations()
+        val vm = viewModel(locations)
+        try {
+            vm.startTracking(); runCurrent()
+            locations.samples.emit(sample()); runCurrent()
+            locations.samples.emit(sample(2L).copy(coordinate = GeoCoordinate(200.0, 0.0))); runCurrent()
+            assertEquals(sample().coordinate, vm.state.value.route.lastSample?.coordinate)
+            assertEquals(1, vm.state.value.route.acceptedCount)
+            assertEquals(1, vm.state.value.route.rejectedCount)
+        } finally { vm.stopTracking(); runCurrent() }
+    }
+
+    @Test
+    fun locationFailureIsVisibleAndCancelsSensorCollection() = runTest {
+        val locations = FakeLocations().apply {
+            stream = flow { throw SecurityException("Permiso revocado") }
+        }
+        val shakes = FakeShakes()
+        val vm = viewModel(locations, shakes)
+        vm.startTracking(); runCurrent()
+        assertFalse(vm.state.value.isTracking)
+        assertEquals("Permiso revocado", vm.state.value.error)
+        assertEquals(0, shakes.events.subscriptionCount.value)
+    }
+
+    @Test
+    fun rapidStopAndRestartDoesNotLetOldSessionStopNewSession() = runTest {
+        val locations = FakeLocations()
+        val vm = viewModel(locations)
+        try {
+            vm.startTracking(); runCurrent()
+            vm.stopTracking()
+            vm.startTracking()
+            runCurrent()
+            assertTrue(vm.state.value.isTracking)
+            assertEquals(1, locations.samples.subscriptionCount.value)
+        } finally { vm.stopTracking(); runCurrent() }
+    }
+
+    @Test
+    fun recenterButtonAndShakeEmitTheCurrentPosition() = runTest {
+        val locations = FakeLocations()
+        val shakes = FakeShakes()
+        val vm = viewModel(locations, shakes)
+        val targets = mutableListOf<GeoCoordinate>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.cameraEvents.collect { targets.add(it) }
+        }
+        try {
+            vm.startTracking(); runCurrent()
+            locations.samples.emit(sample()); runCurrent()
+            vm.recenter(); runCurrent()
+            shakes.events.emit(Unit); runCurrent()
+            assertEquals(listOf(sample().coordinate, sample().coordinate), targets)
+        } finally { vm.stopTracking(); runCurrent() }
+    }
+
+    @Test
+    fun missingSensorDoesNotPreventLocationTracking() = runTest {
+        val locations = FakeLocations()
+        val shakes = FakeShakes(available = false)
+        val vm = viewModel(locations, shakes)
+        try {
+            vm.startTracking(); runCurrent()
+            locations.samples.emit(sample()); runCurrent()
+            assertTrue(vm.state.value.isTracking)
+            assertFalse(vm.state.value.sensorAvailable)
+            assertEquals(1, vm.state.value.route.acceptedCount)
+            assertEquals(0, shakes.events.subscriptionCount.value)
+        } finally { vm.stopTracking(); runCurrent() }
+    }
+}
+```
+
+<br/>
+
+Ejecuta primero los casos nuevos:
+
+```cmd
+.\gradlew.bat :app:testDebugUnitTest --tests "com.example.advancedtracker.domain.geolocation.*" --tests "com.example.advancedtracker.ui.geolocation.*"
+```
+
+<br/>
+
+Después comprueba la integración y las pruebas anteriores:
+
+```cmd
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest
+```
+
+<br/>
+
+El reporte HTML de pruebas estará en:
+
+```html
+app/build/reports/tests/testDebugUnitTest/index.html
+```
+
+<br/>
+
+También se generan resultados XML en `app/build/test-results/testDebugUnitTest`. El proyecto ya habilita `enableUnitTestCoverage = true` en debug; esta práctica conserva esa configuración y no introduce un segundo sistema de cobertura.
+
+<br/>
+
+**Resultado esperado:** los 16 casos nuevos y las pruebas previas pasan. No confundir el reporte de resultados JUnit con un informe de porcentaje de cobertura.
+
+Para comprobar que la integración conserva las pruebas instrumentadas de persistencia y migraciones del 5.1, con un emulador o dispositivo conectado:
+
+```cmd
+.\gradlew.bat :app:connectedDebugAndroidTest
+```
+
+<br/>
+
+Estas pruebas ya pertenecen al 5.1; se ejecutan como comprobación de regresión. El Laboratorio 6.1 agrega 16 pruebas locales, no otras 16 pruebas instrumentadas.
+
+Para abrir el reporte local:
+
+```powershell
+Start-Process ".\app\build\reports\tests\testDebugUnitTest\index.html"
+```
+
+Localiza el reporte de pruebas instrumentadas que genere tu versión de AGP:
+
+```powershell
+Get-ChildItem ".\app\build\reports\androidTests\connected" -Recurse -Filter "index.html" | Select-Object -ExpandProperty FullName
+```
+
+Abre el archivo indicado por esa salida. Los esquemas y migraciones del Laboratorio 5.1 deben seguir validándose sin sustituir la base de datos de la aplicación.
+
+```powershell
+Start-Process "C:\Users\Netec\AndroidStudioProjects\TelemetryTracker\app\build\reports\androidTests\connected\debug\index.html"
+```
+
+
+
+<br/><br/>
+
+
+### Paso 10. Instalar y ejecutar
+
+Con el emulador o dispositivo conectado:
+
+```cmd
+
+.\gradlew.bat :app:installDebug
+
+adb shell am start -n com.example.advancedtracker/com.example.advancedtracker.ui.geolocation.GeolocationLabActivity
+```
+
+<br/>
+
+No se requiere iniciar el servidor Python para capturar ubicación. El mapa necesita Internet, configuración de Google Cloud y una API key válida.
+
+1. Pulsa **Solicitar ubicación**, solicita ubicación y concede precisa o aproximada.
+
+2. Pulsa **Iniciar nueva ruta**.
+
+3. Abre Extended Controls del emulador y utiliza **Location** para enviar puntos o importar `recursos/ruta_cdmx_lab61.gpx`, creado con el contenido del anexo de esta guía.
+
+4. Reproduce el recorrido. Si el emulador no admite importar GPX, envía manualmente las coordenadas de su archivo.
+
+5. Verifica movimiento del marcador, polilínea, contador y distancia aproximada.
+
+6. Pulsa **Centrar** después de mover manualmente la cámara.
+
+7. Pulsa **Detener**: la ruta permanece visible y deja de actualizarse.
+
+8. Al iniciar otra ruta, el historial y las métricas anteriores se reinician.
+
+
+<br/><br/>
+
+Las coordenadas del GPX describen un trayecto corto sintético cerca del centro de Ciudad de México. La velocidad puede permanecer en cero si el proveedor no entrega ese dato; este ejemplo no la inventa a partir de coordenadas. El indicador de ubicación simulada depende de lo que reporte el proveedor, no solo de estar usando un emulador.
+
+<br/><br/>
+
+
+## Problemas comunes
+
+### Mapa gris o sin mosaicos
+
+Revisa `maps_api_key.xml`, Maps SDK for Android habilitado, facturación del proyecto, Internet y restricciones de paquete/SHA-1. Consulta Logcat para mensajes de autorización de Google Maps. No desactives restricciones como solución rutinaria.
+
+<br/>
+
+### No llegan coordenadas
+
+Comprueba permisos reales, ubicación habilitada, Google Play Services y puntos enviados por el emulador. Confirma que pulsaste Iniciar nueva ruta y que la actividad está visible. Si los servicios del sistema se activaron después de fallar el inicio, vuelve a pulsar Iniciar.
+
+<br/>
+
+### Error de Hilt al obtener el ViewModel
+
+Conserva `@HiltAndroidApp` en `TrackerApplication`, `.TrackerApplication` en el manifiesto principal y `@AndroidEntryPoint` en la actividad nueva. Revisa que GeolocationModule esté en `src/main/java` y no hayas duplicado sus clases.
+
+<br/>
+
+### La actividad no se encuentra
+
+Selecciona variante debug, instala el APK y utiliza el componente completo del paso 10. La actividad y su recurso de clave no existen en release. No muevas su registro al manifiesto principal.
+
+<br/>
+
+### El gesto no funciona
+
+La captura debe estar activa, existir acelerómetro, haber una posición aceptada y estar cargado el mapa. El gesto no detecta inclinación: aplica un umbral a la magnitud de aceleración. Comprueba primero Centrar y la prueba unitaria del umbral.
+
+<br/>
+
+### Distancia o velocidad poco realistas
+
+Se muestran datos del proveedor y una estimación geométrica. La ubicación aproximada, el ruido y los saltos entre puntos alteran la distancia; la falta de velocidad en la lectura se muestra como cero. No se ofrece navegación vial ni una medición de odómetro certificada.
+
+<br/><br/>
+
+
+### Cierre
+
+Detén la captura y guarda respaldo o commit. Conserva la aplicación instalada, Room, DataStore y los esquemas para continuar el curso.
+
+Si deseas eliminar únicamente archivos de compilación:
+
+```cmd
+.\gradlew.bat clean
+```
+
+No desinstales ni ejecutes `pm clear` como cierre rutinario. La trayectoria del 6.1 vive en memoria: se pierde si el proceso muere. Room continúa en versión 3, con sus datos, metadatos y migraciones. DataStore conserva las preferencias guardadas. No se modifica la versión de la base para almacenar una ruta en memoria.
+
+<br/>
+<br/>
+
+## Recursos
+
+- Permisos de ubicación: https://developer.android.com/training/location/permissions
+- Solicitud de permisos: https://developer.android.com/training/permissions/requesting
+- Google Play Services Location: https://developers.google.com/android/reference/com/google/android/gms/location/FusedLocationProviderClient
+- Versiones Google Play Services: https://developers.google.com/android/guides/releases
+- Configuración Maps SDK: https://developers.google.com/maps/documentation/android-sdk/start
+- Credenciales Maps: https://developers.google.com/maps/documentation/android-sdk/get-api-key
+- Maps Compose: https://github.com/googlemaps/android-maps-compose
+- Artefacto fijado de Maps Compose: https://central.sonatype.com/artifact/com.google.maps.android/maps-compose/4.3.3
+- Ciclo de vida y corrutinas: https://developer.android.com/topic/libraries/architecture/coroutines
+- Hilt: https://developer.android.com/training/dependency-injection/hilt-android
+- Sensores: https://developer.android.com/develop/sensors-and-location/sensors/sensors_overview
+
+
+<br/>
+<br/>
+
+
+## Validación de la práctica
+
+La práctica incorpora un módulo de geolocalización independiente de la persistencia. Las únicas configuraciones existentes que requieren adiciones son el catálogo de versiones, las dependencias del módulo y el manifiesto de debug. La base Room permanece en versión 3 y conserva las migraciones, metadatos, esquemas y pruebas del laboratorio 5.1.
+
+Se incluyen 16 casos unitarios para geolocalización. La revisión estática comprueba coherencia de las rutas, referencias y bloques del documento; no sustituye la compilación ni la ejecución de pruebas. Comprueba el laboratorio con los comandos Gradle de esta guía, los reportes de resultados y las validaciones manuales en el emulador o dispositivo.
+
+
+<br/>
+<br/>
+
+## Anexo. Ruta de prueba para el emulador
+
+Crea la carpeta `recursos` en la raíz de TelemetryTracker y guarda el siguiente contenido como `recursos/ruta_cdmx_lab61.gpx`. Después impórtalo desde Extended Controls → Location, si tu versión del emulador admite este formato.
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<gpx version="1.1" creator="Laboratorio 6.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Ruta sintética CDMX Lab 6.1</name><trkseg>
+      <trkpt lat="19.43260" lon="-99.13320"><time>2026-10-06T03:00:00Z</time></trkpt>
+      <trkpt lat="19.43265" lon="-99.13315"><time>2026-10-06T03:00:04Z</time></trkpt>
+      <trkpt lat="19.43270" lon="-99.13310"><time>2026-10-06T03:00:08Z</time></trkpt>
+      <trkpt lat="19.43275" lon="-99.13305"><time>2026-10-06T03:00:12Z</time></trkpt>
+      <trkpt lat="19.43280" lon="-99.13300"><time>2026-10-06T03:00:16Z</time></trkpt>
+      <trkpt lat="19.43285" lon="-99.13295"><time>2026-10-06T03:00:20Z</time></trkpt>
+      <trkpt lat="19.43290" lon="-99.13290"><time>2026-10-06T03:00:24Z</time></trkpt>
+      <trkpt lat="19.43295" lon="-99.13285"><time>2026-10-06T03:00:28Z</time></trkpt>
+      <trkpt lat="19.43300" lon="-99.13280"><time>2026-10-06T03:00:32Z</time></trkpt>
+      <trkpt lat="19.43305" lon="-99.13275"><time>2026-10-06T03:00:36Z</time></trkpt>
+      <trkpt lat="19.43310" lon="-99.13270"><time>2026-10-06T03:00:40Z</time></trkpt>
+      <trkpt lat="19.43315" lon="-99.13265"><time>2026-10-06T03:00:44Z</time></trkpt>
+  </trkseg></trk>
+</gpx>
+```
+

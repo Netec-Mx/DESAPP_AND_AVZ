@@ -15,19 +15,21 @@ El curso culmina con un proyecto final integrador, donde el participante constru
 - [**Setup Guide del curso**](https://github.com/Netec-Mx/260928-DESAPP-AND-AVZ/blob/main/SETUP_GUIDE.md)
 - [Laboratorios por capítulo](#lista-de-laboratorios)
 
-## Estructura
 
-- `SETUP_GUIDE.md`: guía de instalación y preparación del entorno.
-- `CapituloXX/README.md`: guía de laboratorio por capítulo.
+<br/>
+<br/>
 
 ## Lista de laboratorios
 
 ### Capítulo 1
 
 - [Configuración del proyecto Android avanzado y desarrollo de concurrencia con Kotlin 2.3.10, Coroutines, StateFlow y SharedFlow sobre API 30–37](Capitulo01/README.md#configuración-del-proyecto-android-avanzado-y-desarrollo-de-concurrencia-con-kotlin-2310-coroutines-stateflow-y-sharedflow-sobre-api-3037)
-  - Descripción: Desarrollar en Kotlin una aplicación Android que aplique funciones de orden superior, sealed classes, corrutinas con suspend, launch, async y await, StateFlow y SharedFlow, además de Dispatchers y cancelación para resolver tareas asíncronas y flujos de datos. La práctica se configurará con Android Studio Quail 3 | 2026.1.3 Patch 1, Kotlin DSL, Android Gradle Plugin 9.3.2, minSdk = 30, compileSdk = 37 y targetSdk = 37, utilizando Kotlin 2.3.10 como versión estándar del curso y sin dependencias dinámicas. La práctica partirá de la plantilla Empty Views Activity y declarará las versiones de dependencias en libs.versions.toml.
+  - Descripción: Desarrollar en Kotlin una aplicación Android que aplique funciones de orden superior, sealed classes, corrutinas con suspend, launch, async y await, StateFlow y SharedFlow, además de Dispatchers y cancelación para resolver tareas asíncronas y flujos de datos. La práctica se configurará con Android Studio, Kotlin DSL, Android Gradle Plugin, minSdk = 31, compileSdk = 37 y targetSdk = 37, utilizando Kotlin como versión estándar del curso y sin dependencias dinámicas. El laboratorio partirá de la plantilla Empty Views Activity y declarará las versiones de dependencias en libs.versions.toml.
   - Duración estimada: 216 min
   - [Ver capítulo completo](Capitulo01/README.md)
+
+<br/>
+<br/>
 
 ### Capítulo 2
 
@@ -36,12 +38,19 @@ El curso culmina con un proyecto final integrador, donde el participante constru
   - Duración estimada: 288 min
   - [Ver capítulo completo](Capitulo02/README.md)
 
+
+<br/>
+<br/>
+
 ### Capítulo 3
 
 - [Implementación de arquitectura MVVM + Clean Architecture con ViewModel, StateFlow, Repository, Use Cases e inyección de dependencias con Hilt](Capitulo03/README.md#implementación-de-arquitectura-mvvm-clean-architecture-con-viewmodel-stateflow-repository-use-cases-e-inyección-de-dependencias-con-hilt)
   - Descripción: Estructurar una aplicación Android aplicando MVVM, ViewModel con corutinas y StateFlow, patrón Repository, Use Cases, separación por capas de Clean Architecture, fundamentos de inyección de dependencias con Hilt y manejo de eventos, estados y errores de UI. El proyecto deberá mantener desacoplamiento entre presentación, dominio y datos y utilizar Kotlin DSL, minSdk = 30, compileSdk = 37 y targetSdk = 37, con las versiones del baseline tecnológico definidas explícitamente en libs.versions.toml. Se empleará Core KTX 1.19.0 y Lifecycle Runtime KTX 2.6.1 cuando correspondan al manejo de ciclo de vida y estado.
   - Duración estimada: 216 min
   - [Ver capítulo completo](Capitulo03/README.md)
+
+<br/>
+<br/>
 
 ### Capítulo 4
 
@@ -50,12 +59,18 @@ El curso culmina con un proyecto final integrador, donde el participante constru
   - Duración estimada: 216 min
   - [Ver capítulo completo](Capitulo04/README.md)
 
+<br/>
+<br/>
+
 ### Capítulo 5
 
 - [Persistencia avanzada con Room 2.8.4 y DataStore: entidades, DAO, migraciones, relaciones, caché y repositorio offline-first API + Room](Capitulo05/README.md#persistencia-avanzada-con-room-284-y-datastore-entidades-dao-migraciones-relaciones-caché-y-repositorio-offline-first-api-room)
   - Descripción: Construir una capa de persistencia avanzada con Room 2.8.4, entidades, DAO, migraciones, consultas, relaciones y paginación, complementada con DataStore Preferences o ProtoDataStore. Integrar una estrategia offline-first con caché y red mediante un repositorio híbrido API + Room. Las dependencias deberán quedar fijadas en libs.versions.toml y ser compatibles con Kotlin 2.3.10, AGP 9.3.2, el SDK del curso y el mecanismo de procesamiento de código requerido.
   - Duración estimada: 216 min
   - [Ver capítulo completo](Capitulo05/README.md)
+
+<br/>
+<br/>
 
 ### Capítulo 6
 
@@ -64,6 +79,9 @@ El curso culmina con un proyecto final integrador, donde el participante constru
   - Duración estimada: 144 min
   - [Ver capítulo completo](Capitulo06/README.md)
 
+<br/>
+<br/>
+
 ### Capítulo 7
 
 - [Proyecto final integrador Android con Jetpack Compose, MVVM, Retrofit 3.0.0, OkHttp 5.5.0, Room 2.8.4, Flows, geolocalización y JetBrains AI Assistant](Capitulo07/README.md#proyecto-final-integrador-android-con-jetpack-compose-mvvm-retrofit-300-okhttp-550-room-284-flows-geolocalización-y-jetbrains-ai-assistant)
@@ -71,11 +89,6 @@ El curso culmina con un proyecto final integrador, donde el participante constru
   - Duración estimada: 144 min
   - [Ver capítulo completo](Capitulo07/README.md)
 
-## Flujo de colaboración
-
-- Trabajar en `changes_course`.
-- Crear Pull Request hacia `main`.
-- Merge por `Squash and merge`.
 
 ---
 
