@@ -1,5 +1,5 @@
+# Laboratorio 1.1 Configuración del proyecto y desarrollo de concurrencia con Kotlin
 
-# Laboratorio 1.1 
 
 ## Descripción General
 
