@@ -106,7 +106,7 @@ Al finalizar podrás:
 
 <br/>
 
-<<OJO>> -- Extraer los nuevos codigos, solo si funciona.
+OJO -- Extraer los nuevos codigos, solo si funciona.
 
 La nueva rama usa `RemoteTelemetryRepository`, `RemoteTelemetryRepositoryImpl`, casos de uso Fetch/SendRemoteTelemetry, `RemoteTelemetryViewModel` y `RemoteTelemetryActivity`.
 
@@ -174,7 +174,7 @@ dependencies {
 ```
 
 
-<OJO> No lo hice si funciona, agregare las que ya puse
+OJO No lo hice si funciona, agregare las que ya puse
 
 <br/>
 
@@ -205,7 +205,7 @@ Conserva Material 3, activity-compose y activity-ktx del proyecto. `by viewModel
 
 Si ya tienes networkSecurityConfig, adapta sus reglas de debug para el host local; esa configuración puede prevalecer sobre el atributo. La excepción HTTP se limita al laboratorio debug; una API real utiliza HTTPS.
 
-<<OJO>>
+OJO
 
 <br/>
 
