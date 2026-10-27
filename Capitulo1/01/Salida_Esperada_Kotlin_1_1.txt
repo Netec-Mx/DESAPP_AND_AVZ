@@ -1,0 +1,84 @@
+
+DEMO 1
+Cantidad + 1 = 4
+Saludo en mayusculas = HOLA
+Es texto: 'Kotlin'; longitud = 6
+No es texto: 42
+No es texto: null
+
+DEMO 2
+Aviso dirigido a everardo@ejemplo.com
+Texto del token = abc123
+Validacion en ejecucion: El correo debe contener @
+Correo a traves de Any = CorreoElectronico(valor=everardo@ejemplo.com)
+
+DEMO 3
+[CREAR delegado] valor inicial = 'Inicial'
+[CREAR delegado] valor inicial = 'CDMX'
+[GET] Ficha.alias devuelve 'Inicial'
+Lectura inicial: Inicial
+[SET] alias: 'Inicial' -> 'KotlinPro'
+[GET] Ficha.alias devuelve 'KotlinPro'
+Lectura final: KotlinPro
+[GET] Ficha.ciudad devuelve 'CDMX'
+Ciudad independiente: CDMX
+
+DEMO 4
+Antes de leer: inicializado = false
+[LAZY] Creando configuracion UNA vez
+Primera lectura: Laboratorio
+Despues de leer: inicializado = true
+Segunda lectura: 3 intentos
+
+DEMO 5
+Inicial: Sin nombre; notificaciones = 0
+[OBSERVABLE] nombre: 'Sin nombre' -> 'Everardo'
+[OBSERVABLE] nombre: 'Everardo' -> 'Everardo'
+[OBSERVABLE] nombre: 'Everardo' -> 'Luis'
+Final: Luis; notificaciones = 3
+
+DEMO 6
+Inicial: 0
+[VETOABLE] edad: 0 -> 25; aceptar = true
+Tras asignar 25: 25
+[VETOABLE] edad: 25 -> -3; aceptar = false
+Tras intentar -3: 25
+
+DEMO 7
+Curso: Kotlin moderno
+Duracion: 2 horas
+Falta la clave horas: NoSuchElementException
+
+DEMO 8
+Entrada: 'Kotlin'
+Sin contrato: true
+Con contrato: true
+Sin contrato, acceso seguro: 6
+Con contrato, acceso directo: 6
+Entrada: ''
+Sin contrato: false
+Con contrato: false
+No valido; es null = false
+Entrada: null
+Sin contrato: false
+Con contrato: false
+No valido; es null = true
+Entrada: '   '
+Sin contrato: true
+Con contrato: true
+Sin contrato, acceso seguro: 3
+Con contrato, acceso directo: 3
+
+DEMO 9
+[INICIALIZAR] Apodo almacenado invertido: 'orPniltoK'
+[SET apodoSeguro] 'ArchExpert' -> 'trepxEhcrA'
+[GET apodoSeguro] 'trepxEhcrA' -> 'ArchExpert'
+Apodo recuperado = ArchExpert
+Caso: con token
+Aceptada; correo = dev@kotlin.org
+Caso: sin objeto
+Rechazada; sesion nula = true
+Caso: token vacio
+Rechazada; sesion nula = false
+Caso: token en blanco
+Rechazada; sesion nula = false
